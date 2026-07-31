@@ -4,6 +4,8 @@ import { documents } from '../../../db/schema';
 import { cosineDistance, desc, sql } from 'drizzle-orm';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+export const maxDuration = 60; // Allow Vercel function to run up to 60 seconds (Hobby max)
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -51,7 +53,7 @@ export async function POST(request: Request) {
       }
     } else {
       // Gemini uses Hugging Face Inference API
-      const embedResponse = await fetch(embedEndpoint, {
+      let embedResponse = await fetch(embedEndpoint, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${process.env.HF_TOKEN}`,
@@ -60,6 +62,20 @@ export async function POST(request: Request) {
         body: JSON.stringify({ inputs: body.query }),
       });
       
+      // If HF model is asleep (503), wait 5 seconds and retry
+      if (embedResponse.status === 503) {
+        console.warn("HF Model loading, waiting 5 seconds...");
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        embedResponse = await fetch(embedEndpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.HF_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ inputs: body.query }),
+        });
+      }
+
       if (embedResponse.ok) {
         const json = await embedResponse.json();
         // HF API returns an array of floats, sometimes nested like [[0.1, ...]] or [0.1, ...]
