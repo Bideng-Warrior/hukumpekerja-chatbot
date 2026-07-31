@@ -1,6 +1,6 @@
 # HukumPekerja Chatbot
 
-Professional prototype for an Indonesian labor-law question-and-answer assistant.
+prototype for an Indonesian labor-law question-and-answer assistant.
 
 HukumPekerja Chatbot is a prototype system that combines experimental Jupyter notebooks for data preparation, model experimentation, and evaluation with a TypeScript-based application layer (Next.js) for user interaction and API serving. The system is intended to provide general information about Indonesian labor law — it is not legal advice.
 
