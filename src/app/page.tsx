@@ -3,49 +3,55 @@
 import { useState } from "react";
 import { DisclaimerModal } from "../components/DisclaimerModal";
 import { ChatInterface } from "../components/ChatInterface";
-import { Scale } from "lucide-react";
+import { Sidebar } from "../components/Sidebar";
+import { Scale, Menu } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function Home() {
   const [hasAcceptedDisclaimer, setHasAcceptedDisclaimer] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
-    <main className="h-dvh flex flex-col relative overflow-hidden">
-      {/* Premium Navbar */}
-      <header className="fixed top-0 inset-x-0 z-40 bg-slate-900/60 backdrop-blur-xl border-b border-slate-700/50">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="bg-linear-to-br from-blue-500 to-emerald-500 text-white p-2.5 rounded-xl shadow-[0_0_20px_-5px_rgba(59,130,246,0.5)] border border-white/10">
-              <Scale className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-white tracking-tight">TanyaHukum</h1>
-              <p className="text-xs text-slate-400 font-medium uppercase tracking-widest">Asisten Legal Pekerja</p>
-            </div>
-          </div>
-        </div>
-      </header>
-
+    <main className="h-dvh flex relative overflow-hidden bg-slate-950">
       {/* Background Decorators */}
-      <div className="absolute top-20 left-10 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-20 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-20 right-10 w-96 h-96 bg-emerald-600/10 rounded-full blur-[120px] pointer-events-none" />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col pt-28 pb-6 px-4 sm:px-6 relative z-10 h-full">
-        <DisclaimerModal 
-          isOpen={!hasAcceptedDisclaimer} 
-          onAccept={() => setHasAcceptedDisclaimer(true)} 
-        />
-        
-        <div className="flex-1 flex flex-col w-full h-full max-w-5xl mx-auto justify-center items-center">
+      {/* Sidebar (Desktop) */}
+      <Sidebar />
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col relative z-10 h-full w-full">
+        {/* Mobile Header */}
+        <header className="md:hidden flex items-center justify-between p-4 border-b border-slate-700/50 bg-slate-900/60 backdrop-blur-xl">
+          <div className="flex items-center space-x-3">
+            <div className="bg-linear-to-br from-blue-500 to-emerald-500 text-white p-2 rounded-xl shadow-lg border border-white/10">
+              <Scale className="w-5 h-5" />
+            </div>
+            <h1 className="text-lg font-bold text-white tracking-tight">TanyaHukum</h1>
+          </div>
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 bg-slate-800 rounded-lg text-slate-300"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        </header>
+
+        <div className="flex-1 flex flex-col w-full h-full p-4 sm:p-6 lg:p-8 justify-center items-center overflow-hidden">
+          <DisclaimerModal 
+            isOpen={!hasAcceptedDisclaimer} 
+            onAccept={() => setHasAcceptedDisclaimer(true)} 
+          />
+          
           <AnimatePresence mode="wait">
             {hasAcceptedDisclaimer ? (
               <motion.div 
                 key="chat"
-                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                initial={{ opacity: 0, y: 20, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.5, ease: "easeOut" }}
-                className="w-full h-full flex flex-col items-center justify-center"
+                className="w-full h-full max-w-4xl mx-auto flex flex-col"
               >
                 <ChatInterface />
               </motion.div>
