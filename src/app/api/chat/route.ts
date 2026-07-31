@@ -13,6 +13,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'AI Endpoint not configured' }, { status: 500 });
     }
 
+    // Input Validation (Prevent DoS and Invalid Types)
+    if (!body.query || typeof body.query !== 'string') {
+      return NextResponse.json({ error: 'Query tidak valid' }, { status: 400 });
+    }
+    if (body.query.length > 2000) {
+      return NextResponse.json({ error: 'Pertanyaan terlalu panjang (maksimal 2000 karakter)' }, { status: 400 });
+    }
+
     // 1. Get embedding for user query
     const embedResponse = await fetch(embedEndpoint, {
       method: 'POST',

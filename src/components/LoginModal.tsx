@@ -28,9 +28,11 @@ export function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps) {
 
     try {
       if (mode === 'login') {
-        const res = await fetch(
-          `/api/users?name=${encodeURIComponent(name.trim())}&password=${encodeURIComponent(password)}`
-        );
+        const res = await fetch('/api/users/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name.trim(), password }),
+        });
         const data = await res.json();
         if (res.ok) {
           onLogin(data);

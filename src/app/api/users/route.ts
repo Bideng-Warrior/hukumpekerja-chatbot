@@ -44,39 +44,4 @@ export async function POST(request: Request) {
   }
 }
 
-/** GET /api/users?name=...&password=... — Login */
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const name = searchParams.get('name');
-    const password = searchParams.get('password');
-
-    if (!name || !password) {
-      return NextResponse.json({ error: 'Nama dan password wajib diisi' }, { status: 400 });
-    }
-
-    const [user] = await db.select()
-      .from(users)
-      .where(eq(users.name, name.trim()))
-      .limit(1);
-
-    if (!user) {
-      return NextResponse.json({ error: 'Pengguna tidak ditemukan' }, { status: 404 });
-    }
-
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) {
-      return NextResponse.json({ error: 'Password salah' }, { status: 401 });
-    }
-
-    // Return user WITHOUT password hash
-    return NextResponse.json({
-      id: user.id,
-      name: user.name,
-      createdAt: user.createdAt,
-    });
-  } catch (error) {
-    console.error('Error logging in:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-  }
-}
+// Insecure GET removed for security
