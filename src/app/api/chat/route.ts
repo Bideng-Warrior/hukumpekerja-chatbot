@@ -62,10 +62,11 @@ export async function POST(request: Request) {
         body: JSON.stringify({ inputs: body.query }),
       });
       
-      // If HF model is asleep (503), wait 5 seconds and retry
-      if (embedResponse.status === 503) {
-        console.warn("HF Model loading, waiting 5 seconds...");
-        await new Promise(resolve => setTimeout(resolve, 5000));
+      // If HF model is asleep (503), retry up to 3 times (wait 10s each)
+      let retries = 3;
+      while (embedResponse.status === 503 && retries > 0) {
+        console.warn(`HF Model loading (503). Waiting 10 seconds... (${retries} retries left)`);
+        await new Promise(resolve => setTimeout(resolve, 10000));
         embedResponse = await fetch(embedEndpoint, {
           method: 'POST',
           headers: {
@@ -74,6 +75,7 @@ export async function POST(request: Request) {
           },
           body: JSON.stringify({ inputs: body.query }),
         });
+        retries--;
       }
 
       if (embedResponse.ok) {
@@ -81,7 +83,7 @@ export async function POST(request: Request) {
         // HF API returns an array of floats, sometimes nested like [[0.1, ...]] or [0.1, ...]
         embedding = Array.isArray(json[0]) ? json[0] : json;
       } else {
-        console.error("HF Embedding failed:", await embedResponse.text());
+        console.error("HF Embedding failed after retries:", embedResponse.status, await embedResponse.text());
       }
     }
 
