@@ -117,8 +117,3 @@ Tambahkan file LICENSE di repo jika belum ada. Jika belum diputuskan, rekomendas
 Untuk pertanyaan lanjutan atau koordinasi kontribusi:
 - Pemilik repo: Bideng-Warrior (lihat halaman GitHub)
 - Atau buat issue di repo untuk diskusi fitur / bug
-
----
-
-Catatan terakhir:
-README ini bersifat generik dan dirancang untuk menutupi bagian notebook (eksperimen) dan komponen TypeScript (aplikasi). Jika Anda ingin README yang lebih spesifik (menambahkan badge CI, contoh endpoint API, screenshot UI, atau instruksi Dockerfile/docker-compose), beri tahu file/folder mana yang menjadi entrypoint (mis. nama folder frontend/backend, nama file `server.ts` atau `app.ts`, dsb.), saya akan sesuaikan dan dapat langsung membuat commit ke repo.
