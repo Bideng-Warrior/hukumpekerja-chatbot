@@ -1,91 +1,91 @@
-# TanyaHukum - Chatbot Hukum Pekerja Indonesia ⚖️
+# HukumPekerja - Indonesian Labor Law Chatbot ⚖️
 
-TanyaHukum adalah aplikasi chatbot berbasis Artificial Intelligence (AI) yang dirancang khusus untuk membantu pekerja di Indonesia memahami hak-hak hukum mereka (seperti pesangon, jam lembur, kontrak kerja, hingga PHK) berdasarkan Undang-Undang dan peraturan ketenagakerjaan resmi.
+HukumPekerja is an Artificial Intelligence (AI) powered chatbot application designed specifically to help workers in Indonesia understand their legal rights (such as severance pay, overtime, work contracts, to layoffs) based on official Indonesian labor laws and regulations.
 
-Aplikasi ini menggunakan teknologi **RAG (Retrieval-Augmented Generation)** yang memastikan AI menjawab secara faktual dan **Anti-Halusinasi**. Jika pertanyaan berada di luar konteks dokumen hukum ketenagakerjaan, sistem akan merujuk pengguna ke Disnaker atau LBH terdekat.
+This application utilizes **RAG (Retrieval-Augmented Generation)** technology to ensure the AI answers factually and **prevents AI hallucinations**. If a query falls outside the context of the provided labor law documents, the system will explicitly refuse to answer and redirect users to the local Manpower Office (Disnaker) or Legal Aid Institute (LBH).
 
-## 🚀 Fitur Utama
+## 🚀 Key Features
 
-- **Hybrid AI Architecture**: Mendukung dua otak AI secara bergantian:
-  - **Llama-3 (Ngrok)**: Model AI privat (Fine-tuned) yang di-hosting secara lokal/via Ngrok.
-  - **Google Gemini (Fallback)**: Model fallback super cepat menggunakan *gemini-3.1-flash-lite*.
-- **Strict RAG (Anti-Halusinasi)**: Mencari pasal hukum secara cerdas dari basis data vektor PostgreSQL dan memaksa AI agar **hanya** menjawab berdasarkan dokumen tersebut.
-- **Hugging Face Inference API**: Menggunakan model embedding bahasa Indonesia terbaik `BAAI/bge-m3` (1024 dimensi).
-- **Persistent Chat History**: Riwayat percakapan tersimpan permanen secara *real-time* ke *database*.
-- **Responsive UI**: Antarmuka Sidebar modern yang responsif dan sangat interaktif, dibangun menggunakan Tailwind CSS & Framer Motion.
+- **Hybrid AI Architecture**: Supports two interchangeable AI brains:
+  - **Llama-3 (Ngrok)**: A private, fine-tuned AI model hosted locally/remotely via Ngrok.
+  - **Google Gemini (Fallback)**: A blazing-fast fallback model using *gemini-3.1-flash-lite*.
+- **Strict RAG (Anti-Hallucination)**: Intelligently retrieves relevant legal articles from a PostgreSQL vector database and strictly confines the AI's response to those retrieved documents.
+- **Hugging Face Inference API**: Uses the best-in-class Indonesian embedding model `BAAI/bge-m3` (1024 dimensions) for precise similarity searches.
+- **Persistent Chat History**: Chat sessions are permanently saved in real-time to the database.
+- **Responsive UI**: A modern, interactive, and responsive sidebar interface built with Tailwind CSS & Framer Motion.
 
-## 🛠️ Teknologi yang Digunakan
+## 🛠️ Tech Stack
 
 - **Frontend**: Next.js 14 (App Router), React, Tailwind CSS, Framer Motion, Lucide Icons
-- **Backend**: Next.js API Routes (Serverless Functions on Vercel)
-- **Database**: PostgreSQL (via Supabase)
-- **ORM & Vektor**: Drizzle ORM, `pgvector` untuk *similarity search* (Cosine Distance)
+- **Backend**: Next.js API Routes (Serverless Functions optimized for Vercel)
+- **Database**: PostgreSQL (hosted via Supabase)
+- **ORM & Vector Search**: Drizzle ORM, `pgvector` for similarity search (Cosine Distance)
 - **AI SDKs**: `@google/generative-ai` (Gemini) & `@huggingface/inference` (Hugging Face)
 
-## 📋 Persyaratan Sistem
+## 📋 System Requirements
 
-Pastikan Anda memiliki hal-hal berikut sebelum memulai:
-- **Node.js** (versi 18.x atau terbaru)
-- **Supabase / PostgreSQL database** dengan ekstensi `vector` yang sudah diaktifkan.
-- **Akun Hugging Face** (untuk mendapatkan *Access Token*).
-- **Akun Google AI Studio** (untuk mendapatkan *Gemini API Key*).
+Ensure you have the following prerequisites before getting started:
+- **Node.js** (version 18.x or newer)
+- **Supabase / PostgreSQL database** with the `vector` extension enabled.
+- **Hugging Face Account** (to obtain an Access Token).
+- **Google AI Studio Account** (to obtain a Gemini API Key).
 
-## ⚙️ Cara Instalasi & Menjalankan (Development)
+## ⚙️ Local Development Setup
 
-1. **Clone repository ini dan masuk ke dalam folder:**
+1. **Clone this repository and navigate to the project directory:**
    ```bash
    git clone https://github.com/Bideng-Warrior/hukumpekerja-chatbot.git
    cd hukumpekerja-chatbot
    ```
 
-2. **Instal seluruh *dependencies*:**
+2. **Install dependencies:**
    ```bash
    npm install
    ```
 
-3. **Atur Environment Variables (`.env`)**
-   Salin file `.env.example` ke `.env` dan lengkapi datanya:
+3. **Configure Environment Variables (`.env`)**
+   Copy `.env.example` to `.env` and fill in your credentials:
    ```env
-   # PostgreSQL Connection (Gunakan pooler dari Supabase jika ada)
+   # PostgreSQL Connection (Use a connection pooler from Supabase if available)
    DATABASE_URL="postgresql://[user]:[password]@[host]:5432/[db]"
 
-   # Endpoint Llama-3 lokal (Ngrok)
+   # Local Llama-3 Endpoint (via Ngrok)
    NEXT_PUBLIC_AI_ENDPOINT="https://xxxx.ngrok-free.dev/api/chat"
 
-   # Kunci AI (Google & Hugging Face)
+   # AI Provider Keys (Google & Hugging Face)
    GEMINI_API_KEY="AIzaSy..."
    HF_TOKEN="hf_..."
    ```
 
-4. **Inisialisasi Database (Push Schema)**
+4. **Initialize the Database (Push Schema)**
    ```bash
    npx drizzle-kit push
    ```
 
-5. **Jalankan Aplikasi**
+5. **Run the Application**
    ```bash
    npm run dev
    ```
-   Buka [http://localhost:3000](http://localhost:3000) di *browser* Anda.
+   Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## ☁️ Deployment ke Vercel
+## ☁️ Deployment to Vercel
 
-Proyek ini sangat mudah di-*deploy* ke Vercel. 
-1. Hubungkan *repository* GitHub Anda ke Vercel.
-2. Di bagian **Environment Variables** di dasbor Vercel, pastikan Anda memasukkan 4 variabel ini:
+This project is fully optimized for seamless deployment to Vercel.
+1. Connect your GitHub repository to Vercel.
+2. In the **Environment Variables** section of your Vercel dashboard, add the following 4 variables:
    - `DATABASE_URL`
    - `NEXT_PUBLIC_AI_ENDPOINT`
    - `GEMINI_API_KEY`
    - `HF_TOKEN`
-3. Vercel akan mengelola sisanya. Proses *Serverless Timeout* telah diatasi (terdapat mekanisme `try-catch` tahan banting pada DNS Hugging Face, serta *timeout handler* yang lebih panjang untuk Vercel).
+3. Vercel handles the rest. Serverless Timeout issues have been mitigated (the codebase includes robust `try-catch` mechanisms to handle intermittent Hugging Face DNS drops, along with extended Vercel timeout handlers).
 
-## 📄 Struktur Direktori Penting
+## 📄 Key Directory Structure
 
-- `src/app/api/chat/route.ts`: Otak utama API (mengurus logika Ngrok vs Gemini, pemanggilan model Embedding, validasi input, hingga kueri RAG ke *pgvector*).
-- `src/app/page.tsx`: Antarmuka *Chatbot* utama.
-- `src/components/SettingsModal.tsx`: Pengaturan AI *Provider* di UI *Frontend*.
-- `src/services/chatService.ts`: Jembatan koneksi HTTP dari antarmuka pengguna ke Server API.
-- `src/db/schema.ts`: Skema *database* Drizzle ORM (termasuk penyimpanan tabel obrolan dan tabel vektor).
+- `src/app/api/chat/route.ts`: The main API brain (handles Ngrok vs Gemini routing, Embedding model invocation, input validation, and `pgvector` RAG queries).
+- `src/app/page.tsx`: The primary Chatbot interface.
+- `src/components/SettingsModal.tsx`: Frontend UI for switching the AI Provider.
+- `src/services/chatService.ts`: The HTTP bridge connecting the UI to the API Server.
+- `src/db/schema.ts`: Drizzle ORM database schemas (including chat tables and vector storage).
 
-## 🔐 Keamanan
-Aplikasi ini membatasi input pengguna maksimal 2000 karakter per pertanyaan untuk menghindari serangan memori pada vektor. Server juga telah menghilangkan rute lama yang tidak digunakan (contohnya `users/login`) demi meningkatkan keamanan data pekerja.
+## 🔐 Security
+This application limits user input to a maximum of 2,000 characters per query to prevent memory exhaustion attacks on the vector database. Unused legacy routes (e.g., `users/login`) have been permanently removed to ensure maximum security for worker data.
