@@ -14,6 +14,10 @@ export async function sendMessage(query: string, history: ChatMessage[]): Promis
       .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
       .join('\n');
 
+    // Read settings from localStorage
+    const provider = typeof window !== 'undefined' ? localStorage.getItem('ai_provider') || 'ngrok' : 'ngrok';
+    const customEndpoint = typeof window !== 'undefined' ? localStorage.getItem('custom_endpoint') || '' : '';
+
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -23,7 +27,8 @@ export async function sendMessage(query: string, history: ChatMessage[]): Promis
       body: JSON.stringify({
         query: query,
         history: historyString,
-        retrieved_context: "" // Handled by Next.js API
+        provider: provider,
+        customEndpoint: customEndpoint,
       }),
     });
 

@@ -2,15 +2,30 @@ import { NextResponse } from 'next/server';
 import { db } from '../../../db';
 import { documents } from '../../../db/schema';
 import { cosineDistance, desc, sql } from 'drizzle-orm';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const endpoint = process.env.NEXT_PUBLIC_AI_ENDPOINT;
-    const embedEndpoint = endpoint?.replace('/api/chat', '/api/embed');
-
-    if (!endpoint || !embedEndpoint) {
-      return NextResponse.json({ error: 'AI Endpoint not configured' }, { status: 500 });
+    const provider = body.provider || 'ngrok';
+    
+    // Determine endpoints based on provider
+    let endpoint = '';
+    let embedEndpoint = '';
+    
+    if (provider === 'ngrok') {
+      endpoint = body.customEndpoint || process.env.NEXT_PUBLIC_AI_ENDPOINT;
+      embedEndpoint = endpoint?.replace('/api/chat', '/api/embed');
+      
+      if (!endpoint || !embedEndpoint) {
+        return NextResponse.json({ error: 'AI Endpoint not configured' }, { status: 500 });
+      }
+    } else {
+      // Gemini provider uses Hugging Face for embeddings
+      embedEndpoint = 'https://api-inference.huggingface.co/pipeline/feature-extraction/BAAI/bge-m3';
+      if (!process.env.GEMINI_API_KEY || !process.env.HF_TOKEN) {
+        return NextResponse.json({ error: 'Gemini API Key or HF Token not configured' }, { status: 500 });
+      }
     }
 
     // Input Validation (Prevent DoS and Invalid Types)
@@ -22,18 +37,42 @@ export async function POST(request: Request) {
     }
 
     // 1. Get embedding for user query
-    const embedResponse = await fetch(embedEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-      body: JSON.stringify({ text: body.query }),
-    });
+    let embedding: number[] | null = null;
+    
+    if (provider === 'ngrok') {
+      const embedResponse = await fetch(embedEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+        body: JSON.stringify({ text: body.query }),
+      });
+      if (embedResponse.ok) {
+        const json = await embedResponse.json();
+        embedding = json.embedding;
+      }
+    } else {
+      // Gemini uses Hugging Face Inference API
+      const embedResponse = await fetch(embedEndpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.HF_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ inputs: body.query }),
+      });
+      
+      if (embedResponse.ok) {
+        const json = await embedResponse.json();
+        // HF API returns an array of floats, sometimes nested like [[0.1, ...]] or [0.1, ...]
+        embedding = Array.isArray(json[0]) ? json[0] : json;
+      } else {
+        console.error("HF Embedding failed:", await embedResponse.text());
+      }
+    }
 
     let retrievedContext = "";
     let citations: any[] = [];
 
-    if (embedResponse.ok) {
-      const { embedding } = await embedResponse.json();
-
+    if (embedding) {
       // 2. Perform Similarity Search in PostgreSQL (pgvector)
       // Retrieve Top 3 most relevant document chunks
       const similarDocs = await db.select()
@@ -62,30 +101,43 @@ ${retrievedContext}
     `.trim();
 
     // 4. Send query + context to AI Engine
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'ngrok-skip-browser-warning': 'true',
-      },
-      body: JSON.stringify({
+    if (provider === 'ngrok') {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: JSON.stringify({
+          query: body.query,
+          retrieved_context: strictContext
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error(`[DEBUG] AI Engine HTTP ${response.status} Body:`, errText);
+        throw new Error(`AI Engine responded with status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      data.citations = citations;
+      return NextResponse.json(data);
+    } else {
+      // Gemini provider logic
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      
+      const prompt = `Konteks:\n${strictContext}\n\nPertanyaan: ${body.query}`;
+      const result = await model.generateContent(prompt);
+      const jawaban_model = result.response.text();
+      
+      return NextResponse.json({
         query: body.query,
-        retrieved_context: strictContext
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error(`[DEBUG] AI Engine HTTP ${response.status} Body:`, errText);
-      throw new Error(`AI Engine responded with status: ${response.status}`);
+        jawaban_model: jawaban_model,
+        citations: citations
+      });
     }
-
-    const data = await response.json();
-    
-    // Inject our metadata citations back into the response so the UI can display them
-    data.citations = citations;
-    
-    return NextResponse.json(data);
   } catch (error) {
     console.error('Proxy Error communicating with AI engine:', error);
     return NextResponse.json(

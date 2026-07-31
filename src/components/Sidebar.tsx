@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, MessageSquare, User as UserIcon, Settings, Scale, LogIn, Lock, LogOut } from 'lucide-react';
 import { User, ChatSession } from '../domain/types';
+import { SettingsModal } from './SettingsModal';
 
 interface SidebarProps {
   user: User | null;
@@ -15,6 +16,7 @@ interface SidebarProps {
 
 export function Sidebar({ user, currentChatId, onLoginClick, onLogout, onNewChat, onSelectChat }: SidebarProps) {
   const [chatHistory, setChatHistory] = useState<ChatSession[]>([]);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Fetch chat history when user logs in
   useEffect(() => {
@@ -126,13 +128,25 @@ export function Sidebar({ user, currentChatId, onLoginClick, onLogout, onNewChat
         ) : (
           <button 
             onClick={onLoginClick}
-            className="w-full flex items-center justify-center space-x-2 bg-slate-800 hover:bg-slate-700 text-white py-2.5 px-4 rounded-xl transition-colors border border-slate-700/50"
+            className="w-full flex items-center justify-center space-x-2 bg-slate-800 hover:bg-slate-700 text-white py-2.5 px-4 rounded-xl transition-colors border border-slate-700/50 mb-3"
           >
             <LogIn className="w-4 h-4" />
             <span className="font-medium text-sm">Masuk / Daftar</span>
           </button>
         )}
+        <button
+          onClick={() => setIsSettingsOpen(true)}
+          className="w-full flex items-center justify-center space-x-2 bg-slate-800/50 hover:bg-slate-700/80 text-slate-300 hover:text-white py-2.5 px-4 rounded-xl transition-colors border border-slate-700/30"
+        >
+          <Settings className="w-4 h-4" />
+          <span className="font-medium text-sm">Pengaturan AI</span>
+        </button>
       </div>
+
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+      />
     </div>
   );
 }
