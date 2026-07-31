@@ -53,21 +53,8 @@ export async function POST(request: Request) {
       }
     } else {
       // Gemini uses Hugging Face Inference API
-      let embedResponse = await fetch(embedEndpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.HF_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ inputs: body.query }),
-      });
-      
-      // If HF model is asleep (503), retry up to 3 times (wait 10s each)
-      let retries = 3;
-      while (embedResponse.status === 503 && retries > 0) {
-        console.warn(`HF Model loading (503). Waiting 10 seconds... (${retries} retries left)`);
-        await new Promise(resolve => setTimeout(resolve, 10000));
-        embedResponse = await fetch(embedEndpoint, {
+      try {
+        let embedResponse = await fetch(embedEndpoint, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${process.env.HF_TOKEN}`,
@@ -75,15 +62,33 @@ export async function POST(request: Request) {
           },
           body: JSON.stringify({ inputs: body.query }),
         });
-        retries--;
-      }
+        
+        // If HF model is asleep (503), retry up to 3 times (wait 10s each)
+        let retries = 3;
+        while (embedResponse.status === 503 && retries > 0) {
+          console.warn(`HF Model loading (503). Waiting 10 seconds... (${retries} retries left)`);
+          await new Promise(resolve => setTimeout(resolve, 10000));
+          embedResponse = await fetch(embedEndpoint, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.HF_TOKEN}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ inputs: body.query }),
+          });
+          retries--;
+        }
 
-      if (embedResponse.ok) {
-        const json = await embedResponse.json();
-        // HF API returns an array of floats, sometimes nested like [[0.1, ...]] or [0.1, ...]
-        embedding = Array.isArray(json[0]) ? json[0] : json;
-      } else {
-        console.error("HF Embedding failed after retries:", embedResponse.status, await embedResponse.text());
+        if (embedResponse.ok) {
+          const json = await embedResponse.json();
+          // HF API returns an array of floats, sometimes nested like [[0.1, ...]] or [0.1, ...]
+          embedding = Array.isArray(json[0]) ? json[0] : json;
+        } else {
+          console.error("HF Embedding failed after retries:", embedResponse.status, await embedResponse.text());
+        }
+      } catch (hfError) {
+        console.error("HF Fetch Exception (DNS/Network):", hfError);
+        // embedding remains null, fallback gracefully
       }
     }
 
