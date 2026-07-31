@@ -4,12 +4,39 @@ import { useState } from "react";
 import { DisclaimerModal } from "../components/DisclaimerModal";
 import { ChatInterface } from "../components/ChatInterface";
 import { Sidebar } from "../components/Sidebar";
+import { LoginModal } from "../components/LoginModal";
 import { Scale, Menu } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { User } from "../domain/types";
 
 export default function Home() {
   const [hasAcceptedDisclaimer, setHasAcceptedDisclaimer] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+
+  const handleLogin = (loggedInUser: User) => {
+    setUser(loggedInUser);
+    setIsLoginModalOpen(false);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setCurrentChatId(null);
+  };
+
+  const handleNewChat = () => {
+    setCurrentChatId(null);
+  };
+
+  const handleSelectChat = (chatId: string) => {
+    setCurrentChatId(chatId);
+  };
+
+  const handleChatCreated = (chatId: string) => {
+    setCurrentChatId(chatId);
+  };
 
   return (
     <main className="h-dvh flex relative overflow-hidden bg-slate-950">
@@ -18,7 +45,14 @@ export default function Home() {
       <div className="absolute bottom-20 right-10 w-96 h-96 bg-emerald-600/10 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Sidebar (Desktop) */}
-      <Sidebar />
+      <Sidebar
+        user={user}
+        currentChatId={currentChatId}
+        onLoginClick={() => setIsLoginModalOpen(true)}
+        onLogout={handleLogout}
+        onNewChat={handleNewChat}
+        onSelectChat={handleSelectChat}
+      />
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col relative z-10 h-full w-full">
@@ -53,7 +87,11 @@ export default function Home() {
                 transition={{ duration: 0.5, ease: "easeOut" }}
                 className="w-full h-full max-w-4xl mx-auto flex flex-col"
               >
-                <ChatInterface />
+                <ChatInterface
+                  userId={user?.id ?? null}
+                  chatId={currentChatId}
+                  onChatCreated={handleChatCreated}
+                />
               </motion.div>
             ) : (
               <motion.div 
@@ -74,6 +112,13 @@ export default function Home() {
           </AnimatePresence>
         </div>
       </div>
+
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLogin={handleLogin}
+      />
     </main>
   );
 }

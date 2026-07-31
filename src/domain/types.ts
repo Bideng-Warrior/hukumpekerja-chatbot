@@ -11,3 +11,18 @@ export interface ChatMessage {
   content: string;
   citations?: CitationData[];
 }
+
+export interface User {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface ChatSession {
+  id: string;
+  userId: string | null;
+  title: string;
+  messages: ChatMessage[];
+  createdAt: string;
+  updatedAt: string;
+}

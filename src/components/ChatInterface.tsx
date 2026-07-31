@@ -6,7 +6,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MessageBubble } from './MessageBubble';
 import { useChat } from '../hooks/useChat';
 
-export function ChatInterface() {
+interface ChatInterfaceProps {
+  userId: string | null;
+  chatId: string | null;
+  onChatCreated?: (chatId: string) => void;
+}
+
+export function ChatInterface({ userId, chatId, onChatCreated }: ChatInterfaceProps) {
   const {
     messages,
     input,
@@ -14,7 +20,7 @@ export function ChatInterface() {
     isLoading,
     messagesEndRef,
     handleSubmit,
-  } = useChat();
+  } = useChat({ userId, chatId, onChatCreated });
 
   return (
     <div className="flex flex-col h-full max-w-5xl mx-auto w-full bg-slate-900/40 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-slate-700/50 overflow-hidden relative">

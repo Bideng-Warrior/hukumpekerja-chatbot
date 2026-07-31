@@ -3,7 +3,8 @@ import { ChatMessage } from '../domain/types';
 
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
-  name: varchar('name', { length: 255 }),
+  name: varchar('name', { length: 255 }).notNull().unique(),
+  password: varchar('password', { length: 255 }).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

@@ -15,6 +15,13 @@
       "when": 1785486174389,
       "tag": "0001_mute_greymalkin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785487279526,
+      "tag": "0002_quiet_deathstrike",
+      "breakpoints": true
     }
   ]
 }
