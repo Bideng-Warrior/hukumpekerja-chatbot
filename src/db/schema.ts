@@ -9,7 +9,7 @@ export const users = pgTable('users', {
 
 export const chats = pgTable('chats', {
   id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').references(() => users.id).notNull(),
+  userId: uuid('user_id').references(() => users.id),
   title: varchar('title', { length: 255 }).notNull(),
   messages: jsonb('messages').$type<ChatMessage[]>().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
