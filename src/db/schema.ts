@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp, jsonb, text, vector } from 'drizzle-orm/pg-core';
 import { ChatMessage } from '../domain/types';
 
 export const users = pgTable('users', {
@@ -15,4 +15,11 @@ export const chats = pgTable('chats', {
   messages: jsonb('messages').$type<ChatMessage[]>().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const documents = pgTable('documents', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  content: text('content').notNull(),
+  metadata: jsonb('metadata').notNull(),
+  embedding: vector('embedding', { dimensions: 1024 }),
 });
