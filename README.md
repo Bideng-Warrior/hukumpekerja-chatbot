@@ -1,119 +1,132 @@
-# HukumPekerja-Chatbot
+# HukumPekerja Chatbot
 
-Sebuah proyek chatbot untuk membantu menjawab pertanyaan terkait hukum ketenagakerjaan (Indonesia). Proyek ini menggabungkan notebook analisis/eksperimen (Jupyter) dan komponen TypeScript untuk antarmuka/serving, serta skrip JavaScript pendukung.
+Professional prototype for an Indonesian labor-law question-and-answer assistant.
 
-Catatan: repositori ini banyak berisi Jupyter Notebook (analisis/eksperimen) dan kode TypeScript untuk bagian aplikasi. Sesuaikan langkah di bawah dengan struktur dan file di repo bila ada perbedaan.
+HukumPekerja Chatbot is a prototype system that combines experimental Jupyter notebooks for data preparation, model experimentation, and evaluation with a TypeScript-based application layer (Next.js) for user interaction and API serving. The system is intended to provide general information about Indonesian labor law — it is not legal advice.
 
-## Fitur
-- Prototype chatbot untuk menjawab pertanyaan terkait hukum ketenagakerjaan
-- Notebooks untuk:
-  - Eksperimen pemrosesan teks / pra-pelatihan atau fine-tuning
-  - Pembersihan data dan eksplorasi dataset
-  - Evaluasi kualitas jawaban
-- Komponen TypeScript untuk:
-  - Antarmuka pengguna (UI) / endpoint API
-  - Integrasi model atau layanan penyedia LLM (opsional)
-- Contoh konfigurasi dan panduan pengembangan
+---
 
-## Bahasa
-Dokumentasi dan antarmuka menggunakan bahasa Indonesia. Kode utama berupa:
-- Jupyter Notebook (majoritas)
-- TypeScript (aplikasi / server)
-- JavaScript, CSS (pendukung)
+Table of contents
+- [Key features](#key-features)
+- [Architecture & technologies](#architecture--technologies)
+- [Prerequisites](#prerequisites)
+- [Installation & running](#installation--running)
+  - [Python / Jupyter notebooks](#python--jupyter-notebooks)
+  - [TypeScript application (Next.js)](#typescript-application-nextjs)
+- [Configuration](#configuration)
+- [Development workflow](#development-workflow)
+- [Directory layout (example)](#directory-layout-example)
+- [Security & data handling](#security--data-handling)
+- [License](#license)
 
-## Persyaratan
-- Node.js (versi LTS disarankan: v16/18+)
-- npm atau pnpm / yarn
-- Python 3.8+ untuk menjalankan Jupyter Notebook
-- pip, virtualenv atau venv
-- (Opsional) Docker dan Docker Compose untuk lingkungan terkontainer
 
-## Instalasi — lingkungan Python (notebook)
-1. Buat virtual environment:
-   - python -m venv .venv
-   - source .venv/bin/activate  (Linux / macOS)
-   - .venv\Scripts\activate     (Windows)
-2. Install dependensi:
-   - Jika ada file requirements.txt:
-     - pip install -r requirements.txt
-   - Atau pasang paket umum:
-     - pip install jupyterlab pandas numpy scikit-learn transformers datasets
-3. Jalankan Jupyter:
-   - jupyter lab
-   - atau jupyter notebook
-4. Buka notebook yang relevan di browser dan ikuti sel-selnya.
+## Key features
+- Q&A assistant for common questions about Indonesian labor law.
+- Jupyter notebooks for:
+  - data cleaning and preprocessing
+  - prompt engineering and experimentation
+  - evaluation and quality checks
+- TypeScript / Next.js application for UI and API endpoints.
+- Configurable to use a local or remote LLM provider via environment variables.
 
-Catatan: Jika repo menyediakan environment.yml (conda) atau binder/requirements khusus, gunakan yang disediakan.
+## Architecture & technologies
+- Notebooks: Python (Jupyter) for experiments and data pipelines
+- Application: TypeScript with Next.js for the frontend and API routes
+- Optional integrations: Hugging Face / external LLM APIs, local model servicers
+- Tooling: Node.js, npm/pnpm/yarn, Python virtual environments, (optional) Docker
 
-## Instalasi — aplikasi TypeScript (frontend / server)
-1. Masuk ke direktori proyek yang berisi package.json (mis. `web/` atau `app/`):
-   - cd path/to/typescript
-2. Install dependensi:
-   - npm install
-   - atau pnpm install / yarn install
-3. Jalankan skrip pengembangan:
-   - npm run dev
-   - atau: npm start / npm run build && npm run start
-4. Periksa package.json untuk skrip yang tersedia dan sesuaikan perintah di atas.
+## Prerequisites
+- Node.js (LTS recommended: v16 / v18+)
+- npm, pnpm, or yarn
+- Python 3.8+
+- pip and a virtual environment tool (venv or conda)
+- (Optional) Docker & Docker Compose for containerized runs
 
-Jika aplikasi berkomunikasi dengan backend atau LLM eksternal, pastikan variabel lingkungan (API key, URL) diatur terlebih dahulu.
+## Installation & running
 
-## Konfigurasi
-Buat file konfigurasi/variabel lingkungan (contoh `.env`) untuk menyimpan:
-- API_KEY_MODEL=...
-- MODEL_ENDPOINT=...
-- PORT=3000
-- LOGGER_LEVEL=info
+### Python / Jupyter notebooks
+1. Clone the repository and change into it:
+   ```bash
+   git clone https://github.com/Bideng-Warrior/hukumpekerja-chatbot.git
+   cd hukumpekerja-chatbot
+   ```
+2. Create and activate a virtual environment:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate    # macOS / Linux
+   .venv\Scripts\activate     # Windows
+   ```
+3. Install Python dependencies. If a `requirements.txt` exists, use it:
+   ```bash
+   pip install -r requirements.txt
+   ```
+   Otherwise install common packages used by the notebooks:
+   ```bash
+   pip install jupyterlab pandas numpy scikit-learn transformers datasets
+   ```
+4. Start Jupyter Lab or Notebook:
+   ```bash
+   jupyter lab
+   # or
+   jupyter notebook
+   ```
+5. Open the notebooks in the `notebooks/` directory (or the repository root if notebooks are located there) and follow the cells.
 
-Pastikan file `.env` dimasukkan ke `.gitignore` jika berisi kredensial.
+### TypeScript application (Next.js)
+1. Change to the application folder (where `package.json` is located). If the project root contains the app, skip this step.
+   ```bash
+   cd web   # adjust if the app is in a different folder
+   ```
+2. Install Node dependencies:
+   ```bash
+   npm install
+   # or
+   pnpm install
+   # or
+   yarn install
+   ```
+3. Run the development server:
+   ```bash
+   npm run dev
+   # or
+   pnpm dev
+   # or
+   yarn dev
+   ```
+4. Open http://localhost:3000 (or configured port) to access the UI.
 
-## Menjalankan secara lokal (alur contoh)
-1. Jalankan notebook untuk memproses / menyiapkan data dan membuat artefak model atau prompt.
-2. Jalankan service TypeScript (UI/API).
-3. Konfigurasikan service agar mengarah ke model (lokal atau layanan LLM).
-4. Akses UI pada http://localhost:PORT dan coba beberapa pertanyaan.
+## Configuration
+Create a `.env` file at the repository root or within the application directory containing required environment variables. Example variables:
 
-## Struktur direktori (contoh)
-(Struktur di bawah ini adalah contoh umum — sesuaikan dengan isi repo)
-- notebooks/        — Jupyter Notebooks (eksperimen & preprocessing)
-- src/              — Kode TypeScript (frontend / backend)
-- public/           — Asset statis (CSS, gambar)
-- data/             — Dataset, file sumber (jangan commit data sensitif)
+```
+MODEL_PROVIDER_URL=https://api.example.com
+MODEL_API_KEY=your_api_key_here
+PORT=3000
+NODE_ENV=development
+```
+
+Ensure `.env` is listed in `.gitignore` to avoid leaking credentials.
+
+## Development workflow
+- Use the notebooks to prepare datasets and produce any model artefacts or prompt templates required by the application.
+- Run the Next.js application in development mode while pointing it to the model provider configured in `.env`.
+- For changes that affect notebooks or data pipelines, include a short README or note in the notebook explaining how to reproduce outputs.
+- Keep notebook outputs minimal when committing: clear large outputs and include only essential visualizations or results.
+
+## Directory layout (example)
+- notebooks/        — Jupyter notebooks (experiments, preprocessing, evaluation)
+- src/              — TypeScript source code for application (frontend / API)
+- public/           — Static assets (images, CSS)
+- data/             — Datasets and generated artefacts (do not commit sensitive data)
 - README.md
 - requirements.txt / package.json
 
-## Kontribusi
-Terima kasih atas minat berkontribusi! Panduan singkat:
-1. Fork repo dan buat branch fitur: `git checkout -b feat/nama-fitur`
-2. Buat perubahan, sertakan test bila relevan.
-3. Jalankan notebook/rebuild agar perubahan tercermin.
-4. Ajukan Pull Request dengan deskripsi jelas tentang perubahan dan tujuan.
-5. Sertakan contoh cara menguji fitur baru.
+Adjust paths above to match the repository's actual structure.
 
-Jika Anda mengirim notebook, mohon:
-- Minimalkan output besar (clear output sebelum commit bila perlu)
-- Sertakan penjelasan dan sel yang menjalankan pipeline utama
+## Security & data handling
+- Do not commit API keys, credentials, or sensitive datasets to the repository.
+- If working with personal or sensitive data, anonymize or remove personally identifiable information before including samples in the repo.
+- Follow applicable laws and organizational policies when handling datasets.
 
-## Lisensi
-Tambahkan file LICENSE di repo jika belum ada. Jika belum diputuskan, rekomendasi umum:
-- MIT License — untuk kebanyakan proyek open-source
-- CC-BY sajak untuk materi dokumentasi/konteks non-kode
-
-## Keamanan & Privasi
-- Jangan commit kredensial, kunci API, atau data pribadi ke repo publik.
-- Jika repo memuat dataset sensitif, pastikan telah dihapus atau dienkripsi.
-
-## Troubleshooting (Umum)
-- Jika Jupyter tidak bisa dijalankan: pastikan Python & pip sudah terinstal, lalu periksa virtualenv aktif.
-- Jika npm script gagal: cek versi Node.js dan dependency mismatch, perbarui node_modules (`rm -rf node_modules && npm install`).
-- Jika model/endpoint LLM tidak merespons: periksa kredensial dan konektivitas jaringan.
-
-## Contoh penggunaan singkat
-- Jalankan notebook preprocessing untuk membuat file `data/processed.jsonl`
-- Jalankan server: `cd web && npm install && npm run dev`
-- Buka UI dan masukkan pertanyaan seperti: "Apa hak pekerja saat PHK tanpa pesangon?"
-
-## Kontak
-Untuk pertanyaan lanjutan atau koordinasi kontribusi:
-- Pemilik repo: Bideng-Warrior (lihat halaman GitHub)
-- Atau buat issue di repo untuk diskusi fitur / bug
+## License
+If a license is not yet included in this repository, add a `LICENSE` file to specify terms. A common choice for open-source projects is the MIT License.
