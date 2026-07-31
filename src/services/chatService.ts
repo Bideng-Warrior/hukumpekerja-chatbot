@@ -1,49 +1,59 @@
 import { ChatMessage, CitationData } from '../domain/types';
 
-// Mock API function to simulate RAG retrieval and generation
+const FALLBACK_MESSAGE = "Mohon maaf, layanan AI saat ini sedang tidak tersedia atau sibuk. Silakan coba beberapa saat lagi, atau hubungi Disnaker/LBH terdekat untuk bantuan darurat.";
+
 export async function sendMessage(query: string, history: ChatMessage[]): Promise<ChatMessage> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      let content = "Terima kasih atas pertanyaannya. Sebagai informasi, hak-hak Anda dilindungi oleh Undang-Undang.";
-      let citations: CitationData[] = [];
+  // Use the internal Next.js API proxy to bypass CORS
+  const endpoint = '/api/chat';
 
-      const lowerQuery = query.toLowerCase();
+  try {
+    // Format history to provide context, excluding welcome message and the current query
+    const historyString = history
+      .slice(0, -1) // remove the last message (current query)
+      .filter(m => m.id !== 'welcome') // ignore hardcoded welcome
+      .map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`)
+      .join('\n');
 
-      if (lowerQuery.includes('phk') || lowerQuery.includes('pesangon')) {
-        content = "Jika Anda mengalami PHK (Pemutusan Hubungan Kerja), Anda berhak atas uang pesangon, uang penghargaan masa kerja, dan uang penggantian hak, sesuai dengan alasan PHK tersebut. Besaran pastinya bergantung pada masa kerja Anda.";
-        citations = [
-          {
-            uu: "UU Cipta Kerja",
-            pasal: "Pasal 156",
-            bab: "Bab IV Ketenagakerjaan",
-            text: "Dalam hal terjadi pemutusan hubungan kerja, pengusaha wajib membayar uang pesangon dan/atau uang penghargaan masa kerja dan uang penggantian hak yang seharusnya diterima."
-          }
-        ];
-      } else if (lowerQuery.includes('lembur')) {
-        content = "Untuk kerja lembur, Anda berhak menerima upah lembur. Waktu kerja lembur maksimal adalah 4 jam sehari dan 18 jam seminggu. Pengusaha wajib membayar upah kerja lembur.";
-        citations = [
-          {
-            uu: "Peraturan Pemerintah Pengganti Undang-Undang",
-            pasal: "Pasal 78",
-            bab: "Bab IV Ketenagakerjaan",
-            text: "Pengusaha yang mempekerjakan pekerja/buruh melebihi waktu kerja, wajib membayar upah kerja lembur."
-          },
-          {
-            uu: "PP PKWT",
-            pasal: "Pasal 31",
-            text: "Waktu kerja lembur hanya dapat dilakukan paling banyak 4 (empat) jam dalam 1 (satu) hari dan 18 (delapan belas) jam dalam 1 (satu) minggu."
-          }
-        ];
-      } else {
-        content = "Berdasarkan pedoman hukum yang ada, hal tersebut diatur dalam hukum ketenagakerjaan Indonesia. Jika ini adalah masalah serius, kami sarankan Anda berkonsultasi langsung dengan Disnaker atau LBH terdekat untuk mendapatkan pendampingan hukum resmi.";
-      }
+    // Read settings from localStorage
+    const provider = typeof window !== 'undefined' ? localStorage.getItem('ai_provider') || 'ngrok' : 'ngrok';
+    const customEndpoint = typeof window !== 'undefined' ? localStorage.getItem('custom_endpoint') || '' : '';
 
-      resolve({
-        id: Math.random().toString(36).substring(7),
-        role: 'assistant',
-        content,
-        citations
-      });
-    }, 1500); // Simulate network latency
-  });
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      // Send query and history to our Next.js API
+      body: JSON.stringify({
+        query: query,
+        history: historyString,
+        provider: provider,
+        customEndpoint: customEndpoint,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Proxy responded with status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Map to FastAPI response: {"query": "...", "jawaban_model": "..."}
+    return {
+      id: Date.now().toString(),
+      role: 'assistant',
+      content: data.jawaban_model || FALLBACK_MESSAGE,
+      citations: [],
+    };
+
+  } catch (error) {
+    console.error('Error communicating with internal chat proxy:', error);
+    
+    return {
+      id: Date.now().toString(),
+      role: 'assistant',
+      content: FALLBACK_MESSAGE,
+      citations: [],
+    };
+  }
 }
