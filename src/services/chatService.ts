@@ -43,7 +43,7 @@ export async function sendMessage(query: string, history: ChatMessage[]): Promis
       id: Date.now().toString(),
       role: 'assistant',
       content: data.jawaban_model || FALLBACK_MESSAGE,
-      citations: [],
+      citations: Array.isArray(data.citations) ? data.citations : [],
     };
 
   } catch (error) {

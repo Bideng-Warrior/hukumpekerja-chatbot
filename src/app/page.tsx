@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DisclaimerModal } from "../components/DisclaimerModal";
 import { ChatInterface } from "../components/ChatInterface";
 import { Sidebar } from "../components/Sidebar";
@@ -16,12 +16,30 @@ export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
 
+  // Restore session on page load (token is validated server-side)
+  useEffect(() => {
+    const token = localStorage.getItem("auth_token");
+    if (!token) return;
+
+    fetch("/api/users/me", { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((user) => {
+        if (user) {
+          setUser(user);
+        } else {
+          localStorage.removeItem("auth_token");
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const handleLogin = (loggedInUser: User) => {
     setUser(loggedInUser);
     setIsLoginModalOpen(false);
   };
 
   const handleLogout = () => {
+    localStorage.removeItem("auth_token");
     setUser(null);
     setCurrentChatId(null);
   };
@@ -53,6 +71,50 @@ export default function Home() {
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
       />
+
+      {/* Sidebar (Mobile drawer) */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <>
+            <motion.div
+              key="backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+            />
+            <motion.div
+              key="drawer"
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="fixed inset-y-0 left-0 z-50 md:hidden"
+            >
+              <Sidebar
+                isMobile
+                onClose={() => setIsMobileMenuOpen(false)}
+                user={user}
+                currentChatId={currentChatId}
+                onLoginClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsLoginModalOpen(true);
+                }}
+                onLogout={handleLogout}
+                onNewChat={() => {
+                  handleNewChat();
+                  setIsMobileMenuOpen(false);
+                }}
+                onSelectChat={(chatId) => {
+                  handleSelectChat(chatId);
+                  setIsMobileMenuOpen(false);
+                }}
+              />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col relative z-10 h-full w-full">

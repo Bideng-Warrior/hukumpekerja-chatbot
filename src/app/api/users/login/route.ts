@@ -3,6 +3,7 @@ import { db } from '../../../../db';
 import { users } from '../../../../db/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
+import { createSessionToken } from '../../../../lib/auth';
 
 /** POST /api/users/login — Login securely without exposing password in URL */
 export async function POST(request: Request) {
@@ -28,11 +29,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Password salah' }, { status: 401 });
     }
 
-    // Return user WITHOUT password hash
+    // Return user WITHOUT password hash, plus a signed session token
     return NextResponse.json({
       id: user.id,
       name: user.name,
       createdAt: user.createdAt,
+      token: createSessionToken(user.id),
     });
   } catch (error) {
     console.error('Error logging in:', error);

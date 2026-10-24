@@ -16,6 +16,8 @@ export interface User {
   id: string;
   name: string;
   createdAt: string;
+  /** Signed session token returned by login/register, stored in localStorage */
+  token?: string;
 }
 
 export interface ChatSession {

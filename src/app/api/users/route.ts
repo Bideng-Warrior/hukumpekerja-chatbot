@@ -3,6 +3,7 @@ import { db } from '../../../db';
 import { users } from '../../../db/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
+import { createSessionToken } from '../../../lib/auth';
 
 const SALT_ROUNDS = 10;
 
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
       password: hashedPassword,
     }).returning({ id: users.id, name: users.name, createdAt: users.createdAt });
 
-    return NextResponse.json(newUser, { status: 201 });
+    return NextResponse.json({ ...newUser, token: createSessionToken(newUser.id) }, { status: 201 });
   } catch (error) {
     console.error('Error creating user:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

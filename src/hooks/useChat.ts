@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { ChatMessage } from '../domain/types';
 import { sendMessage } from '../services/chatService';
+import { getAuthHeaders } from '../lib/api';
 
 interface UseChatOptions {
   userId: string | null;
@@ -37,7 +38,7 @@ export function useChat({ userId, chatId, onChatCreated }: UseChatOptions) {
   // Load existing chat messages when chatId changes
   const loadChat = useCallback(async (id: string) => {
     try {
-      const res = await fetch(`/api/chats?userId=${userId}`);
+      const res = await fetch('/api/chats', { headers: { ...getAuthHeaders() } });
       if (res.ok) {
         const chats = await res.json();
         const chat = chats.find((c: { id: string }) => c.id === id);
@@ -71,14 +72,14 @@ export function useChat({ userId, chatId, onChatCreated }: UseChatOptions) {
         // Update existing chat
         await fetch(`/api/chats/${currentChatIdRef.current}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
           body: JSON.stringify({ messages: allMessages }),
         });
       } else {
         // Create new chat
         const res = await fetch('/api/chats', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
           body: JSON.stringify({ userId, title, messages: allMessages }),
         });
         if (res.ok) {

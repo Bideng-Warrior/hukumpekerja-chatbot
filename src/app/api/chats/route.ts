@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 import { db } from '../../../db';
 import { chats } from '../../../db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
+import { getUserIdFromRequest } from '../../../lib/auth';
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-
+    // User identity comes from the signed session token, never from the query string
+    const userId = getUserIdFromRequest(request);
     if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Login diperlukan untuk melihat riwayat chat' }, { status: 401 });
     }
 
     const userChats = await db.select()
@@ -27,14 +27,19 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { userId, title, messages } = body;
+    const { title, messages } = body;
 
     if (!title || !messages) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    const authUserId = getUserIdFromRequest(request);
+    if (body.userId && !authUserId) {
+      return NextResponse.json({ error: 'Login diperlukan untuk menyimpan chat' }, { status: 401 });
+    }
+
     const [newChat] = await db.insert(chats).values({
-      userId: userId || null,
+      userId: authUserId,
       title,
       messages,
     }).returning();

@@ -35,6 +35,7 @@ export function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps) {
         });
         const data = await res.json();
         if (res.ok) {
+          localStorage.setItem('auth_token', data.token);
           onLogin(data);
         } else {
           setError(data.error || 'Terjadi kesalahan. Coba lagi.');
@@ -47,6 +48,7 @@ export function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps) {
         });
         const data = await res.json();
         if (res.ok) {
+          localStorage.setItem('auth_token', data.token);
           onLogin(data);
         } else {
           setError(data.error || 'Gagal mendaftar. Coba lagi.');

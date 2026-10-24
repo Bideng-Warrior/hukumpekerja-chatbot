@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { Plus, MessageSquare, User as UserIcon, Settings, Scale, LogIn, Lock, LogOut } from 'lucide-react';
+import { Plus, MessageSquare, User as UserIcon, Settings, Scale, LogIn, Lock, LogOut, X } from 'lucide-react';
 import { User, ChatSession } from '../domain/types';
 import { SettingsModal } from './SettingsModal';
+import { getAuthHeaders } from '../lib/api';
 
 interface SidebarProps {
   user: User | null;
@@ -12,9 +13,12 @@ interface SidebarProps {
   onLogout: () => void;
   onNewChat: () => void;
   onSelectChat: (chatId: string) => void;
+  /** When set, renders as a mobile drawer (with a close button) instead of the desktop rail */
+  isMobile?: boolean;
+  onClose?: () => void;
 }
 
-export function Sidebar({ user, currentChatId, onLoginClick, onLogout, onNewChat, onSelectChat }: SidebarProps) {
+export function Sidebar({ user, currentChatId, onLoginClick, onLogout, onNewChat, onSelectChat, isMobile, onClose }: SidebarProps) {
   const [chatHistory, setChatHistory] = useState<ChatSession[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -27,7 +31,7 @@ export function Sidebar({ user, currentChatId, onLoginClick, onLogout, onNewChat
 
     const fetchHistory = async () => {
       try {
-        const res = await fetch(`/api/chats?userId=${user.id}`);
+        const res = await fetch('/api/chats', { headers: { ...getAuthHeaders() } });
         if (res.ok) {
           const chats = await res.json();
           setChatHistory(chats);
@@ -41,17 +45,32 @@ export function Sidebar({ user, currentChatId, onLoginClick, onLogout, onNewChat
   }, [user, currentChatId]); // Re-fetch when currentChatId changes (new chat created)
 
   return (
-    <div className="w-72 h-full hidden md:flex flex-col bg-slate-900/60 backdrop-blur-2xl border-r border-slate-700/50 relative z-40">
+    <div className={
+      isMobile
+        ? 'w-72 h-full flex flex-col bg-slate-900/95 backdrop-blur-2xl border-r border-slate-700/50 relative'
+        : 'w-72 h-full hidden md:flex flex-col bg-slate-900/60 backdrop-blur-2xl border-r border-slate-700/50 relative z-40'
+    }>
       {/* Header */}
       <div className="p-4 border-b border-slate-700/50">
-        <div className="flex items-center space-x-3 mb-6">
-          <div className="bg-linear-to-br from-blue-500 to-emerald-500 text-white p-2 rounded-xl shadow-lg border border-white/10">
-            <Scale className="w-5 h-5" />
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="bg-linear-to-br from-blue-500 to-emerald-500 text-white p-2 rounded-xl shadow-lg border border-white/10">
+              <Scale className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-white tracking-tight leading-none">TanyaHukum</h1>
+              <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest mt-1">Asisten Legal</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-white tracking-tight leading-none">TanyaHukum</h1>
-            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest mt-1">Asisten Legal</p>
-          </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+              aria-label="Tutup menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         <button 

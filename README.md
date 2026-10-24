@@ -9,7 +9,7 @@ This application utilizes **RAG (Retrieval-Augmented Generation)** technology to
 - **Hybrid AI Architecture**: Supports two interchangeable AI brains:
   - **Llama-3 (Ngrok)**: A private, fine-tuned AI model hosted locally/remotely via Ngrok.
   - **Google Gemini (Fallback)**: A blazing-fast fallback model using *gemini-3.1-flash-lite*.
-- **Strict RAG (Anti-Hallucination)**: Intelligently retrieves relevant legal articles from a PostgreSQL vector database and strictly confines the AI's response to those retrieved documents.
+- **Strict RAG (Anti-Hallucination)**: Intelligently retrieves relevant legal articles from a PostgreSQL vector database and strictly confines the AI's response to those retrieved documents. Queries with no chunk similar enough (cosine-distance threshold, configurable via `RAG_MAX_DISTANCE`) receive a safe refusal directing the user to Disnaker/LBH instead of an improvised answer.
 - **Hugging Face Inference API**: Uses the best-in-class Indonesian embedding model `BAAI/bge-m3` (1024 dimensions) for precise similarity searches.
 - **Persistent Chat History**: Chat sessions are permanently saved in real-time to the database.
 - **Responsive UI**: A modern, interactive, and responsive sidebar interface built with Tailwind CSS & Framer Motion.
@@ -55,6 +55,11 @@ Ensure you have the following prerequisites before getting started:
    # AI Provider Keys (Google & Hugging Face)
    GEMINI_API_KEY="AIzaSy..."
    HF_TOKEN="hf_..."
+
+   # Optional
+   GEMINI_MODEL="gemini-3.1-flash-lite"  # First-choice Gemini model; further fallbacks are tried automatically
+   RAG_MAX_DISTANCE="0.55"               # Cosine-distance ceiling for RAG chunks (lower = stricter)
+   AUTH_SECRET="long-random-string"      # Dedicated signing key for session tokens
    ```
 
 4. **Initialize the Database (Push Schema)**
@@ -88,4 +93,7 @@ This project is fully optimized for seamless deployment to Vercel.
 - `src/db/schema.ts`: Drizzle ORM database schemas (including chat tables and vector storage).
 
 ## 🔐 Security
-This application limits user input to a maximum of 2,000 characters per query to prevent memory exhaustion attacks on the vector database. Unused legacy routes (e.g., `users/login`) have been permanently removed to ensure maximum security for worker data.
+- User input is limited to a maximum of 2,000 characters per query to prevent memory exhaustion attacks on the vector database.
+- Authentication uses server-signed session tokens (HMAC). Chat-history endpoints derive the user from the `Authorization: Bearer` header and verify chat ownership before every write — a `userId` sent by the client is never trusted.
+- The insecure `GET /api/users` listing was removed. `POST /api/users/login` remains in use by the login modal; passwords are stored and compared as bcrypt hashes and are never sent in URLs.
+- For production, set `AUTH_SECRET` so session tokens are signed with a dedicated secret instead of one derived from `DATABASE_URL`.
