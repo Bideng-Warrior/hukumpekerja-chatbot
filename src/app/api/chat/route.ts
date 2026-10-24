@@ -205,8 +205,10 @@ export async function POST(request: Request) {
     const strictContext = `
 ${historyText}ATURAN WAJIB (ANTI-HALUSINASI):
 1. Anda HANYA boleh menjawab berdasarkan teks di bawah ini.
-2. JIKA JAWABAN TIDAK ADA DI TEKS DI BAWAH INI, Anda WAJIB menjawab: "Maaf, saya tidak menemukan informasi tersebut di dokumen hukum saya. Silakan hubungi Disnaker atau LBH terdekat."
-3. Jangan pernah membuat-buat aturan hukum (halusinasi).
+2. Pertanyaan pengguna boleh berbeda redaksi dengan pasal. Jika teks memuat ketentuan yang RELEVAN dengan inti pertanyaan, Anda WAJIB menjawabnya dari ketentuan tersebut — contoh: ditanya "pesangon PHK sepihak", jawab dari pasal tentang uang pesangon PHK beserta rincian besarnya.
+3. JIKA sama sekali tidak ada ketentuan yang relevan di teks di bawah ini, Anda WAJIB menjawab: "Maaf, saya tidak menemukan informasi tersebut di dokumen hukum saya. Silakan hubungi Disnaker atau LBH terdekat."
+4. Jangan pernah membuat-buat aturan hukum, angka, atau pasal yang tidak ada di teks (halusinasi).
+5. Sebutkan nomor pasal yang menjadi dasar jawaban Anda.
 
 DOKUMEN HUKUM:
 ${retrievedContext}
@@ -274,10 +276,12 @@ ${retrievedContext}
       );
     }
 
+    // Jawaban penolakan tidak boleh membawa sitasi — tampil kontradiktif di UI
+    const isRefusal = /tidak menemukan informasi tersebut/i.test(jawaban_model);
     return NextResponse.json({
       query: body.query,
       jawaban_model,
-      citations,
+      citations: isRefusal ? [] : citations,
       engine: engineUsed,
     });
   } catch (error) {
