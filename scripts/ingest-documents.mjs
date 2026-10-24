@@ -334,7 +334,7 @@ async function main() {
       };
       await sql`
         INSERT INTO documents (content, metadata, embedding)
-        VALUES (${b.text}, ${JSON.stringify(meta)}::jsonb, ${JSON.stringify(embeddings[j])}::vector)
+        VALUES (${b.text}, ${sql.jsonb(meta)}, ${JSON.stringify(embeddings[j])}::vector)
       `;
       done++;
     }
