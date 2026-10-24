@@ -7,15 +7,20 @@
  *   - Pembersihan noise halaman (nomor halaman, "SALINAN", "PRESIDEN REPUBLIK
  *     INDONESIA", footer SK) dengan pencocokan mirip difflib
  *   - Chunking per pasal (merekam BAB aktif), pasal panjang dipecah ~2500 karakter
- *   - Embedding BAAI/bge-m3 via Hugging Face (router + fallback domain lama),
- *     dikirim dalam batch untuk menghemat request
  *   - Re-run aman: baris lama dengan metadata source sama dihapus dulu (dedup)
  *
- * Metadata yang disimpan: { source, uu, bab, pasal, text } — sesuai bentuk
- * CitationData di aplikasi sehingga kartu sitasi menampilkan nama UU & pasal.
+ * Embedding via EMBEDDING_PROVIDER:
+ *   - "gemini" : gemini-embedding-001, outputDimensionality 1024, dikirim
+ *                batch via batchEmbedContents (tidak butuh kredit HF)
+ *   - "hf"     : BAAI/bge-m3 via Hugging Face Inference (router + domain lama)
+ *
+ * PENTING: model embedding saat ingest dan saat query runtime HARUS sama
+ * (set EMBEDDING_PROVIDER di Vercel dengan nilai yang sama). Ganti provider
+ * memerlukan re-ingest seluruh dokumen.
  *
  * Pemakaian:
- *   HF_TOKEN=hf_xxx DATABASE_URL=postgresql://... node scripts/ingest-documents.mjs <folder> [--dry-run]
+ *   EMBEDDING_PROVIDER=gemini GEMINI_API_KEY=... DATABASE_URL=... \
+ *     node scripts/ingest-documents.mjs <folder> [--dry-run]
  */
 
 import fs from 'node:fs';
@@ -31,20 +36,32 @@ const HF_EMBED_ENDPOINTS = [
   'https://router.huggingface.co/hf-inference/models/BAAI/bge-m3',
   'https://api-inference.huggingface.co/pipeline/feature-extraction/BAAI/bge-m3',
 ];
+const GEMINI_EMBED_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001`;
 const MAX_CHARS_PER_CHUNK = 2500;
-const EMBED_BATCH_SIZE = 16;
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
 const folder = args.find((a) => !a.startsWith('--'));
+const provider = process.env.EMBEDDING_PROVIDER === 'gemini' ? 'gemini' : 'hf';
+const EMBED_BATCH_SIZE = provider === 'gemini' ? 20 : 16;
 
 if (!folder) {
-  console.error('Pemakaian: HF_TOKEN=... DATABASE_URL=... node scripts/ingest-documents.mjs <folder-dokumen> [--dry-run]');
+  console.error('Pemakaian: EMBEDDING_PROVIDER=gemini|hf ( + kunci terkait ) DATABASE_URL=... node scripts/ingest-documents.mjs <folder-dokumen> [--dry-run]');
   process.exit(1);
 }
-if (!dryRun && (!process.env.HF_TOKEN || !process.env.DATABASE_URL)) {
-  console.error('HF_TOKEN dan DATABASE_URL wajib ada (atau jalankan dengan --dry-run).');
-  process.exit(1);
+if (!dryRun) {
+  if (!process.env.DATABASE_URL) {
+    console.error('DATABASE_URL wajib ada (atau jalankan dengan --dry-run).');
+    process.exit(1);
+  }
+  if (provider === 'gemini' && !process.env.GEMINI_API_KEY) {
+    console.error('EMBEDDING_PROVIDER=gemini memerlukan GEMINI_API_KEY.');
+    process.exit(1);
+  }
+  if (provider === 'hf' && !process.env.HF_TOKEN) {
+    console.error('EMBEDDING_PROVIDER=hf memerlukan HF_TOKEN.');
+    process.exit(1);
+  }
 }
 
 // ---------- 1. Pembersih noise halaman (porting dari Load_Legal.ipynb) ----------
@@ -154,9 +171,49 @@ function splitLongChunk(text, maxChars) {
   return parts;
 }
 
-// ---------- 3. Embedding via Hugging Face ----------
+// ---------- 3. Embedding ----------
 
-async function embedBatch(texts) {
+async function embedBatchGemini(texts) {
+  // backoff untuk 429 (limit RPM/TPM free tier)
+  for (let attempt = 0; attempt < 8; attempt++) {
+    try {
+      const res = await fetch(`${GEMINI_EMBED_URL}:batchEmbedContents?key=${process.env.GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requests: texts.map((t) => ({
+            model: 'models/gemini-embedding-001',
+            content: { parts: [{ text: t }] },
+            outputDimensionality: 1024,
+          })),
+        }),
+      });
+      if (res.status === 429 || res.status === 503) {
+        const wait = 15000 * (attempt + 1);
+        console.warn(`\n  Gemini ${res.status}; tunggu ${wait / 1000}s (percobaan ${attempt + 1}/8)`);
+        await new Promise((r) => setTimeout(r, wait));
+        continue;
+      }
+      if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 200)}`);
+      const json = await res.json();
+      const vectors = json.embeddings.map((e) => e.values);
+      if (vectors.some((v) => !v || v.length !== 1024)) {
+        throw new Error(`dimensi embedding tidak 1024: ${vectors.map((v) => v?.length).join(',')}`);
+      }
+      return vectors;
+    } catch (err) {
+      if (attempt === 7) {
+        console.error(`  Batch Gemini gagal permanen: ${err.message}`);
+        return null;
+      }
+      console.warn(`  Gemini embed error (${err.message}); ulangi...`);
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+  }
+  return null;
+}
+
+async function embedBatchHf(texts) {
   for (let e = 0; e < HF_EMBED_ENDPOINTS.length; e++) {
     const url = HF_EMBED_ENDPOINTS[e];
     let retries = 4;
@@ -188,6 +245,8 @@ async function embedBatch(texts) {
   }
   return null;
 }
+
+const embedBatch = (texts) => (provider === 'gemini' ? embedBatchGemini(texts) : embedBatchHf(texts));
 
 // ---------- 4. Main ----------
 
@@ -221,15 +280,10 @@ async function main() {
   }
 
   const totalChunks = plan.reduce((n, p) => n + p.chunks.length, 0);
-  console.log(`\nTotal: ${plan.length} dokumen, ${totalChunks} chunk`);
+  console.log(`\nTotal: ${plan.length} dokumen, ${totalChunks} chunk (embedding provider: ${provider})`);
 
   if (dryRun) {
-    for (const p of plan.slice(0, 1)) {
-      console.log(`\nContoh chunk pertama dari ${p.source}:`);
-      const c = p.chunks[0];
-      console.log(JSON.stringify({ uu: p.uu, bab: c.bab, pasal: c.pasal, preview: c.text.slice(0, 150) }, null, 2));
-    }
-    console.log('\n[dry-run] Tidak ada embedding/penyimpanan.');
+    console.log('[dry-run] Tidak ada embedding/penyimpanan.');
     return;
   }
 
@@ -250,7 +304,7 @@ async function main() {
     const batch = all.slice(i, i + EMBED_BATCH_SIZE);
     const embeddings = await embedBatch(batch.map((b) => b.text));
     if (!embeddings) {
-      console.error(`Batch ${Math.floor(i / EMBED_BATCH_SIZE) + 1} gagal di-embed — dilewati`);
+      console.error(`\nBatch ${Math.floor(i / EMBED_BATCH_SIZE) + 1} gagal di-embed — dilewati`);
       failed += batch.length;
       continue;
     }
@@ -262,6 +316,7 @@ async function main() {
         bab: b.bab,
         pasal: b.pasal,
         text: b.text.slice(0, 250),
+        embedding_provider: provider === 'gemini' ? 'gemini-embedding-001' : 'bge-m3',
       };
       await sql`
         INSERT INTO documents (content, metadata, embedding)

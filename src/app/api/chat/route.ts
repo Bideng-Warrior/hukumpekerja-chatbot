@@ -67,6 +67,31 @@ async function embedWithHuggingFace(text: string): Promise<number[] | null> {
   return null;
 }
 
+// Gemini-native embeddings (1024 dims, matching the documents vector column).
+// Used when EMBEDDING_PROVIDER=gemini — the provider used at INGESTION time and
+// at QUERY time must be the same model, or cosine similarity is meaningless.
+async function embedWithGemini(text: string): Promise<number[] | null> {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: { parts: [{ text }] }, outputDimensionality: 1024 }),
+      }
+    );
+    if (!res.ok) {
+      console.error('Gemini embedding failed:', res.status, (await res.text()).slice(0, 300));
+      return null;
+    }
+    const json = await res.json();
+    return json.embedding?.values ?? null;
+  } catch (error) {
+    console.warn('Gemini embedding request error:', error);
+    return null;
+  }
+}
+
 // Gemini model names keep getting renamed/deprecated; try a chain of candidates
 // until one responds instead of betting on a single hard-coded name.
 const DEFAULT_GEMINI_MODELS = [
@@ -119,7 +144,7 @@ export async function POST(request: Request) {
       if (!endpoint) {
         return NextResponse.json({ error: 'AI Endpoint not configured' }, { status: 500 });
       }
-    } else if (!process.env.GEMINI_API_KEY || !process.env.HF_TOKEN) {
+    } else if (!process.env.GEMINI_API_KEY || (process.env.EMBEDDING_PROVIDER !== 'gemini' && !process.env.HF_TOKEN)) {
       return NextResponse.json({ error: 'Gemini API Key or HF Token not configured' }, { status: 500 });
     }
 
@@ -143,6 +168,8 @@ export async function POST(request: Request) {
       } catch (error) {
         console.warn('Ngrok embedding request error (is /api/embed running in the Colab backend?):', error);
       }
+    } else if (process.env.EMBEDDING_PROVIDER === 'gemini') {
+      embedding = await embedWithGemini(body.query);
     } else {
       embedding = await embedWithHuggingFace(body.query);
     }
