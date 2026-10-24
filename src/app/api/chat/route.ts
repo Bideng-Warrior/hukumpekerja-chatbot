@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '../../../db';
 import { documents } from '../../../db/schema';
-import { cosineDistance } from 'drizzle-orm';
+import { cosineDistance, and, sql } from 'drizzle-orm';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { CitationData } from '../../../domain/types';
 
@@ -187,14 +187,54 @@ export async function POST(request: Request) {
       .orderBy(distance)
       .limit(5);
 
-    const relevantDocs = similarDocs.filter((doc) => {
-      // drizzle types the raw cosineDistance expression as {}; at runtime it is a number
-      const docDistance = doc.distance as number | null;
-      return docDistance != null && docDistance <= MAX_DISTANCE;
-    });
+    const relevantDocs: Array<{ content: string; metadata: unknown; distance?: unknown }> =
+      similarDocs.filter((doc) => {
+        // drizzle types the raw cosineDistance expression as {}; at runtime it is a number
+        const docDistance = doc.distance as number | null;
+        return docDistance != null && docDistance <= MAX_DISTANCE;
+      });
 
     if (relevantDocs.length === 0) {
       return NextResponse.json({ query: body.query, jawaban_model: REFUSAL_MESSAGE, citations: [] });
+    }
+
+    // Reference-following: pasal hasil pencarian sering hanya MERUJUK pasal lain
+    // ("... sebesar 0,5 kali ketentuan Pasal 40 ayat (2)") tanpa memuat isi rujukannya.
+    // Tarik juga chunk pasal yang dirujuk agar model benar-benar memegang ketentuan
+    // dasarnya, bukan hanya rujukan kosong.
+    type DocMeta = Partial<CitationData> & { source?: string };
+    const metaOf = (doc: { metadata: unknown }) => (doc.metadata ?? {}) as DocMeta;
+    const keyOf = (doc: { metadata: unknown }) => `${metaOf(doc).source}|${metaOf(doc).pasal}`;
+
+    const refCounts = new Map<string, number>();
+    for (const doc of relevantDocs) {
+      const source = metaOf(doc).source;
+      if (!source) continue;
+      for (const ref of doc.content.match(/Pasal\s+(\d+[A-Z]?)/g) ?? []) {
+        const key = `${source}|Pasal ${ref.replace(/^Pasal\s+/, '')}`;
+        refCounts.set(key, (refCounts.get(key) ?? 0) + 1);
+      }
+    }
+
+    const alreadyIn = new Set(relevantDocs.map(keyOf));
+    const topRefs = [...refCounts.entries()]
+      .filter(([key]) => !alreadyIn.has(key))
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+
+    for (const [key] of topRefs) {
+      const [source, pasal] = key.split('|');
+      const refDocs = await db
+        .select({ content: documents.content, metadata: documents.metadata })
+        .from(documents)
+        .where(
+          and(
+            sql`${documents.metadata}->>'source' = ${source}`,
+            sql`${documents.metadata}->>'pasal' = ${pasal}`
+          )
+        )
+        .limit(2);
+      relevantDocs.push(...refDocs);
     }
 
     const citations: CitationData[] = relevantDocs.map((doc) => {
