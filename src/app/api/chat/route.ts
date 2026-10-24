@@ -71,25 +71,34 @@ async function embedWithHuggingFace(text: string): Promise<number[] | null> {
 // Used when EMBEDDING_PROVIDER=gemini — the provider used at INGESTION time and
 // at QUERY time must be the same model, or cosine similarity is meaningless.
 async function embedWithGemini(text: string): Promise<number[] | null> {
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: { parts: [{ text }] }, outputDimensionality: 1024 }),
+  // Kuota embedding bisa tersendat sesaat (429/503); tanpa retry, satu hiccup
+  // membuat seluruh chat menolak menjawab.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${process.env.GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: { parts: [{ text }] }, outputDimensionality: 1024 }),
+        }
+      );
+      if (res.status === 429 || res.status === 503) {
+        console.warn(`Gemini embedding ${res.status}; percobaan ${attempt + 1}/3`);
+        await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 4000 : 10000));
+        continue;
       }
-    );
-    if (!res.ok) {
-      console.error('Gemini embedding failed:', res.status, (await res.text()).slice(0, 300));
-      return null;
+      if (!res.ok) {
+        console.error('Gemini embedding failed:', res.status, (await res.text()).slice(0, 300));
+        return null;
+      }
+      const json = await res.json();
+      return json.embedding?.values ?? null;
+    } catch (error) {
+      console.warn(`Gemini embedding request error (percobaan ${attempt + 1}/3):`, error);
     }
-    const json = await res.json();
-    return json.embedding?.values ?? null;
-  } catch (error) {
-    console.warn('Gemini embedding request error:', error);
-    return null;
   }
+  return null;
 }
 
 // Gemini model names keep getting renamed/deprecated; try a chain of candidates
