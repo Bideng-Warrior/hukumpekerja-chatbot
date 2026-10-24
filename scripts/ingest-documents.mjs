@@ -25,9 +25,11 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
+const fpOf = (t) => crypto.createHash('sha1').update(t).digest('hex').slice(0, 16);
 // Lewati index.js pdf-parse (punya cabang debug yang membaca file test saat
 // dimuat di luar CJS biasa); ambil modul intinya langsung.
 const pdfParse = require('pdf-parse/lib/pdf-parse.js');
@@ -287,21 +289,32 @@ async function main() {
     return;
   }
 
-  // Fase 2: hapus data lama per source (re-run tidak menduplikasi)
+  // Fase 2: resume — chunk yang identik (source + hash konten) sudah ada di DB
+  // tidak di-embed ulang. Pakai --fresh untuk rebuild penuh (hapus lama lalu insert).
   const { default: postgres } = await import('postgres');
   const sql = postgres(process.env.DATABASE_URL, { prepare: false, ssl: 'require', max: 1 });
-  for (const p of plan) {
-    await sql`DELETE FROM documents WHERE metadata->>'source' = ${p.source}`;
+
+  const all = plan.flatMap((p) => p.chunks.map((c) => ({ ...c, source: p.source, uu: p.uu })));
+  let pending = all;
+
+  if (args.includes('--fresh')) {
+    for (const p of plan) {
+      await sql`DELETE FROM documents WHERE metadata->>'source' = ${p.source}`;
+    }
+    console.log('--fresh: data lama untuk semua sumber dihapus, rebuild penuh.');
+  } else {
+    const existing = await sql`SELECT metadata->>'source' AS source, content FROM documents`;
+    const have = new Set(existing.map((r) => `${r.source}:${fpOf(r.content)}`));
+    pending = all.filter((b) => !have.has(`${b.source}:${fpOf(b.text)}`));
+    console.log(`Resume: ${all.length - pending.length} chunk sudah ada di DB, ${pending.length} perlu di-embed.`);
   }
-  console.log(`Data lama untuk ${plan.length} sumber dihapus (kalau ada).`);
 
   // Fase 3: embed batch & insert
   let done = 0;
   let failed = 0;
-  const all = plan.flatMap((p) => p.chunks.map((c) => ({ ...c, source: p.source, uu: p.uu })));
 
-  for (let i = 0; i < all.length; i += EMBED_BATCH_SIZE) {
-    const batch = all.slice(i, i + EMBED_BATCH_SIZE);
+  for (let i = 0; i < pending.length; i += EMBED_BATCH_SIZE) {
+    const batch = pending.slice(i, i + EMBED_BATCH_SIZE);
     const embeddings = await embedBatch(batch.map((b) => b.text));
     if (!embeddings) {
       console.error(`\nBatch ${Math.floor(i / EMBED_BATCH_SIZE) + 1} gagal di-embed — dilewati`);
@@ -316,6 +329,7 @@ async function main() {
         bab: b.bab,
         pasal: b.pasal,
         text: b.text.slice(0, 250),
+        fp: fpOf(b.text),
         embedding_provider: provider === 'gemini' ? 'gemini-embedding-001' : 'bge-m3',
       };
       await sql`
@@ -324,7 +338,7 @@ async function main() {
       `;
       done++;
     }
-    process.stdout.write(`\rProgress: ${done}/${all.length} tersimpan`);
+    process.stdout.write(`\rProgress: ${done}/${pending.length} tersimpan`);
   }
 
   await sql.end();
