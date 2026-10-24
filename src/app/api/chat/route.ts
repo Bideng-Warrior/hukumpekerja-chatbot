@@ -176,7 +176,7 @@ export async function POST(request: Request) {
       .select({ content: documents.content, metadata: documents.metadata, distance })
       .from(documents)
       .orderBy(distance)
-      .limit(3);
+      .limit(5);
 
     const relevantDocs = similarDocs.filter((doc) => {
       // drizzle types the raw cosineDistance expression as {}; at runtime it is a number

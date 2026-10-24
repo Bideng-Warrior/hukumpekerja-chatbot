@@ -109,6 +109,11 @@ function cleanText(text) {
     .join('\n');
 }
 
+// Gabungkan pecahan baris PDF menjadi teks mengalir — transformasi yang sama
+// dengan yang sudah diterapkan pada baris lama di database, supaya fingerprint
+// resume tetap cocok dan model bisa membaca isi pasal dengan utuh.
+const flowText = (t) => t.replace(/[ \t]*\n[ \t]*/g, ' ').replace(/ {2,}/g, ' ').trim();
+
 // ---------- 2. Ekstraksi & chunking per pasal ----------
 
 async function extractText(file) {
@@ -275,7 +280,7 @@ async function main() {
     }
     const pasalChunks = chunkByPasal(text);
     const chunks = pasalChunks.flatMap((pc) =>
-      splitLongChunk(pc.text, MAX_CHARS_PER_CHUNK).map((t) => ({ bab: pc.bab, pasal: pc.pasal, text: t }))
+      splitLongChunk(pc.text, MAX_CHARS_PER_CHUNK).map((t) => ({ bab: pc.bab, pasal: pc.pasal, text: flowText(t) }))
     );
     console.log(`  ${pasalChunks.length} pasal -> ${chunks.length} chunk`);
     plan.push({ source, uu, chunks });
