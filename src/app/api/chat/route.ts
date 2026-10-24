@@ -260,12 +260,12 @@ export async function POST(request: Request) {
     const historyText = body.history ? `RIWAYAT OBROLAN SEBELUMNYA:\n${body.history}\n\n` : '';
 
     const strictContext = `
-${historyText}ATURAN WAJIB (ANTI-HALUSINASI):
-1. Anda HANYA boleh menjawab berdasarkan teks di bawah ini.
-2. Pertanyaan pengguna boleh berbeda redaksi dengan pasal. Jika teks memuat ketentuan yang RELEVAN dengan inti pertanyaan, Anda WAJIB menjawabnya dari ketentuan tersebut — contoh: ditanya "pesangon PHK sepihak", jawab dari pasal tentang uang pesangon PHK beserta rincian besarnya.
-3. JIKA sama sekali tidak ada ketentuan yang relevan di teks di bawah ini, Anda WAJIB menjawab: "Maaf, saya tidak menemukan informasi tersebut di dokumen hukum saya. Silakan hubungi Disnaker atau LBH terdekat."
-4. Jangan pernah membuat-buat aturan hukum, angka, atau pasal yang tidak ada di teks (halusinasi).
-5. Sebutkan nomor pasal yang menjadi dasar jawaban Anda.
+${historyText}ATURAN (ANTI-HALUSINASI):
+1. Jawab HANYA berdasarkan DOKUMEN HUKUM di bawah ini.
+2. Redaksi pertanyaan boleh berbeda dengan pasal — cari ketentuan yang paling relevan dengan INTI pertanyaan, lalu jawab dari sana dan sebut nomor pasalnya.
+3. Rujukan seperti "ketentuan Pasal 40 ayat (2)" menunjuk pasal yang juga tersedia di teks; gunakan isinya untuk merinci jawaban (besaran, masa kerja, kelipatan).
+4. Dilarang mengarang aturan, angka, atau pasal yang tidak ada di teks.
+5. Hanya jika SETELAH membaca seluruh teks benar-benar tidak ada satu pun ketentuan yang relevan: tolak dengan sopan dan sarankan menghubungi Disnaker atau LBH terdekat.
 
 DOKUMEN HUKUM:
 ${retrievedContext}
@@ -333,8 +333,12 @@ ${retrievedContext}
       );
     }
 
-    // Jawaban penolakan tidak boleh membawa sitasi — tampil kontradiktif di UI
-    const isRefusal = /tidak menemukan informasi tersebut/i.test(jawaban_model);
+    // Jawaban penolakan tidak boleh membawa sitasi — tampil kontradiktif di UI.
+    // Penolakan model dibebaskan redaksinya, jadi deteksinya: pendek DAN menyuarakan
+    // tidak-menemukan-informasi (jawaban panjang yang menyarankan Disnaker di akhir
+    // tetap dianggap jawaban).
+    const isRefusal =
+      jawaban_model.length < 250 && /tidak\s+(menemukan|ada)\s+informasi/i.test(jawaban_model);
     return NextResponse.json({
       query: body.query,
       jawaban_model,
