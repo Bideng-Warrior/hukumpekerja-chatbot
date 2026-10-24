@@ -178,6 +178,28 @@ function splitLongChunk(text, maxChars) {
   return parts;
 }
 
+// Buang debris rujukan: baris "Pasal N" milik rujukan lintas-pasal yang kebetulan
+// berdiri sendiri (akibat pemenggalan baris PDF) membuat potongan kecil /
+// berawalan "ayat" salah tertatribusi ke pasal rujukan. Dalam grup pasal yang
+// punya chunk utuh, debris seperti itu dibuang.
+function dropReferenceDebris(chunks) {
+  const groups = new Map();
+  for (const c of chunks) {
+    const k = `${c.source}|${c.pasal}`;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(c);
+  }
+  const out = [];
+  for (const list of groups.values()) {
+    const hasSolid = list.some((c) => c.text.length >= 400 && !/^ayat\b/i.test(c.text));
+    for (const c of list) {
+      const debris = hasSolid && (/^ayat\b/i.test(c.text) || c.text.length < 150);
+      if (!debris) out.push(c);
+    }
+  }
+  return out;
+}
+
 // ---------- 3. Embedding ----------
 
 async function embedBatchGemini(texts) {
@@ -299,7 +321,12 @@ async function main() {
   const { default: postgres } = await import('postgres');
   const sql = postgres(process.env.DATABASE_URL, { prepare: false, ssl: 'require', max: 1 });
 
-  const all = plan.flatMap((p) => p.chunks.map((c) => ({ ...c, source: p.source, uu: p.uu })));
+  let all = plan.flatMap((p) => p.chunks.map((c) => ({ ...c, source: p.source, uu: p.uu })));
+  const beforeDebris = all.length;
+  all = dropReferenceDebris(all);
+  if (all.length !== beforeDebris) {
+    console.log(`Debris rujukan dibuang: ${beforeDebris - all.length} chunk (sisa ${all.length})`);
+  }
   let pending = all;
 
   if (args.includes('--fresh')) {

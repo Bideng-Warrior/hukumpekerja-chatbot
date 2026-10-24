@@ -188,7 +188,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ query: body.query, jawaban_model: REFUSAL_MESSAGE, citations: [] });
     }
 
-    const retrievedContext = relevantDocs.map((doc) => doc.content).join('\n\n---\n\n');
     const citations: CitationData[] = relevantDocs.map((doc) => {
       const meta = (doc.metadata ?? {}) as Partial<CitationData>;
       return {
@@ -198,6 +197,15 @@ export async function POST(request: Request) {
         text: meta.text ?? doc.content,
       };
     });
+
+    // Beri label identitas pada tiap chunk agar model (dan rujukan antar-pasal
+    // seperti "ketentuan Pasal 40 ayat (2)") dapat dilacak dalam konteks.
+    const retrievedContext = relevantDocs
+      .map((doc, i) => {
+        const c = citations[i];
+        return `[${c.uu} - ${c.pasal}${c.bab ? `, ${c.bab}` : ''}]\n${doc.content}`;
+      })
+      .join('\n\n---\n\n');
 
     // 3. Strict Anti-Hallucination Prompt Injection + Chat History
     const historyText = body.history ? `RIWAYAT OBROLAN SEBELUMNYA:\n${body.history}\n\n` : '';
