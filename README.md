@@ -6,9 +6,7 @@ This application utilizes **RAG (Retrieval-Augmented Generation)** technology to
 
 ## 🚀 Key Features
 
-- **Hybrid AI Architecture**: Supports two interchangeable AI brains:
-  - **Llama-3 (Ngrok)**: A private, fine-tuned AI model hosted locally/remotely via Ngrok.
-  - **Google Gemini (Fallback)**: A blazing-fast fallback model using *gemini-3.1-flash-lite*.
+- **Hybrid AI Architecture**: Llama-3 (Ngrok, your fine-tuned model on Colab) answers first when its backend is running; if the endpoint is missing, unreachable, or fails, the request automatically falls back to **Google Gemini** (*gemini-3.1-flash-lite* + model fallback chain) so users always get an answer. Retrieval embeddings come from one provider (`EMBEDDING_PROVIDER`) shared by ingestion and queries.
 - **Strict RAG (Anti-Hallucination)**: Intelligently retrieves relevant legal articles from a PostgreSQL vector database and strictly confines the AI's response to those retrieved documents. Queries with no chunk similar enough (cosine-distance threshold, configurable via `RAG_MAX_DISTANCE`) receive a safe refusal directing the user to Disnaker/LBH instead of an improvised answer.
 - **Hugging Face Inference API**: Uses the best-in-class Indonesian embedding model `BAAI/bge-m3` (1024 dimensions) for precise similarity searches.
 - **Persistent Chat History**: Chat sessions are permanently saved in real-time to the database.

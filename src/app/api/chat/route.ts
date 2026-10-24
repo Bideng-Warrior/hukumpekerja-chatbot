@@ -140,39 +140,28 @@ export async function POST(request: Request) {
 
     let endpoint = '';
     if (provider === 'ngrok') {
-      endpoint = body.customEndpoint || process.env.NEXT_PUBLIC_AI_ENDPOINT;
-      if (!endpoint) {
-        return NextResponse.json({ error: 'AI Endpoint not configured' }, { status: 500 });
-      }
-    } else if (!process.env.GEMINI_API_KEY || (process.env.EMBEDDING_PROVIDER !== 'gemini' && !process.env.HF_TOKEN)) {
-      return NextResponse.json({ error: 'Gemini API Key or HF Token not configured' }, { status: 500 });
+      endpoint = body.customEndpoint || process.env.NEXT_PUBLIC_AI_ENDPOINT || '';
+      // Tanpa endpoint Ngrok yang hidup, generation otomatis jatuh ke Gemini.
     }
 
-    // 1. Get embedding for the user query
-    let embedding: number[] | null = null;
-
-    if (provider === 'ngrok') {
-      const embedEndpoint = endpoint.replace('/api/chat', '/api/embed');
-      try {
-        const embedResponse = await fetch(embedEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-          body: JSON.stringify({ text: body.query }),
-        });
-        if (embedResponse.ok) {
-          const json = await embedResponse.json();
-          embedding = json.embedding ?? null;
-        } else {
-          console.error('Ngrok embedding failed:', embedResponse.status, await embedResponse.text());
-        }
-      } catch (error) {
-        console.warn('Ngrok embedding request error (is /api/embed running in the Colab backend?):', error);
-      }
-    } else if (process.env.EMBEDDING_PROVIDER === 'gemini') {
-      embedding = await embedWithGemini(body.query);
-    } else {
-      embedding = await embedWithHuggingFace(body.query);
+    // Retrieval memakai EMBEDDING_PROVIDER (sama dengan saat ingest); generation
+    // Llama -> Gemini. Error config hanya kalau kedua jalur sama-sama mustahil.
+    if (!endpoint && !process.env.GEMINI_API_KEY) {
+      return NextResponse.json({ error: 'Tidak ada AI engine terkonfigurasi (endpoint Ngrok atau Gemini API Key)' }, { status: 500 });
     }
+    if (process.env.EMBEDDING_PROVIDER === 'gemini' && !process.env.GEMINI_API_KEY) {
+      return NextResponse.json({ error: 'Gemini API Key not configured' }, { status: 500 });
+    }
+    if (process.env.EMBEDDING_PROVIDER !== 'gemini' && !process.env.HF_TOKEN) {
+      return NextResponse.json({ error: 'HF Token not configured' }, { status: 500 });
+    }
+
+    // 1. Embed the query with the SAME provider used at ingestion time
+    //    (EMBEDDING_PROVIDER) — regardless of which engine generates the answer.
+    const embedding =
+      process.env.EMBEDDING_PROVIDER === 'gemini'
+        ? await embedWithGemini(body.query)
+        : await embedWithHuggingFace(body.query);
 
     // Without an embedding there is no factual grounding — return the safe
     // refusal instead of letting the LLM answer with an empty context.
@@ -223,39 +212,73 @@ DOKUMEN HUKUM:
 ${retrievedContext}
     `.trim();
 
-    // 4. Send query + context to AI Engine
-    if (provider === 'ngrok') {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: JSON.stringify({
-          query: body.query,
-          retrieved_context: strictContext,
-        }),
-      });
+    // 4. Generation dengan fallback otomatis: Llama (Ngrok) lebih dulu saat
+    //    provider ngrok dipilih, lalu Gemini jika endpoint tidak ada/tidak
+    //    merespons/timeout/jawabannya kosong. Embedding & retrieval tetap satu
+    //    provider (EMBEDDING_PROVIDER) untuk semua engine.
+    const engines: Array<'ngrok' | 'gemini'> =
+      provider === 'ngrok' && endpoint ? ['ngrok', 'gemini'] : ['gemini'];
 
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error(`[DEBUG] AI Engine HTTP ${response.status} Body:`, errText);
-        throw new Error(`AI Engine responded with status: ${response.status}`);
+    const prompt = `Konteks:\n${strictContext}\n\nPertanyaan: ${body.query}`;
+    let jawaban_model: string | null = null;
+    let engineUsed = '';
+
+    for (const engine of engines) {
+      if (engine === 'ngrok') {
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'ngrok-skip-browser-warning': 'true',
+            },
+            body: JSON.stringify({
+              query: body.query,
+              retrieved_context: strictContext,
+            }),
+            signal: AbortSignal.timeout(25000),
+          });
+
+          if (!response.ok) {
+            console.error(`[llama-ngrok] HTTP ${response.status}:`, (await response.text()).slice(0, 300));
+            continue; // fallback ke Gemini
+          }
+
+          const data = await response.json();
+          const answer = typeof data.jawaban_model === 'string' ? data.jawaban_model.trim() : '';
+          if (!answer) {
+            console.warn('[llama-ngrok] jawaban kosong — fallback ke Gemini');
+            continue;
+          }
+          jawaban_model = answer;
+          engineUsed = 'llama-ngrok';
+        } catch (error) {
+          console.warn('[llama-ngrok] engine tidak tersedia — fallback ke Gemini:', error);
+        }
+      } else {
+        if (!process.env.GEMINI_API_KEY) continue;
+        try {
+          jawaban_model = await generateWithGemini(prompt);
+          engineUsed = 'gemini';
+        } catch (error) {
+          console.error('[gemini] engine gagal:', error);
+        }
       }
-
-      const data = await response.json();
-      data.citations = citations;
-      return NextResponse.json(data);
+      if (jawaban_model) break;
     }
 
-    // Gemini provider logic
-    const prompt = `Konteks:\n${strictContext}\n\nPertanyaan: ${body.query}`;
-    const jawaban_model = await generateWithGemini(prompt);
+    if (!jawaban_model) {
+      return NextResponse.json(
+        { error: 'Gagal terhubung ke layanan AI.' },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({
       query: body.query,
       jawaban_model,
       citations,
+      engine: engineUsed,
     });
   } catch (error) {
     console.error('Proxy Error communicating with AI engine:', error);
