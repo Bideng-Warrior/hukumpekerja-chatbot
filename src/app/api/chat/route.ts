@@ -237,24 +237,33 @@ export async function POST(request: Request) {
       relevantDocs.push(...refDocs);
     }
 
-    const citations: CitationData[] = relevantDocs.map((doc) => {
-      const meta = (doc.metadata ?? {}) as Partial<CitationData>;
-      return {
-        uu: meta.uu ?? 'Dokumen Hukum',
-        pasal: meta.pasal ?? '-',
-        bab: meta.bab,
-        text: meta.text ?? doc.content,
-      };
-    });
+    const labelOf = (doc: { metadata: unknown; content: string }) => {
+      const m = (doc.metadata ?? {}) as DocMeta;
+      return `[${m.uu ?? 'Dokumen Hukum'} - ${m.pasal ?? '-'}${m.bab ? `, ${m.bab}` : ''}]`;
+    };
 
     // Beri label identitas pada tiap chunk agar model (dan rujukan antar-pasal
     // seperti "ketentuan Pasal 40 ayat (2)") dapat dilacak dalam konteks.
     const retrievedContext = relevantDocs
-      .map((doc, i) => {
-        const c = citations[i];
-        return `[${c.uu} - ${c.pasal}${c.bab ? `, ${c.bab}` : ''}]\n${doc.content}`;
-      })
+      .map((doc) => `${labelOf(doc)}\n${doc.content}`)
       .join('\n\n---\n\n');
+
+    // Sitasi didedup per pasal (reference-following bisa menarik beberapa chunk
+    // dari pasal yang sama).
+    const seenPasal = new Set<string>();
+    const citations: CitationData[] = [];
+    for (const doc of relevantDocs) {
+      const m = (doc.metadata ?? {}) as DocMeta;
+      const key = `${m.uu}|${m.pasal}`;
+      if (seenPasal.has(key)) continue;
+      seenPasal.add(key);
+      citations.push({
+        uu: m.uu ?? 'Dokumen Hukum',
+        pasal: m.pasal ?? '-',
+        bab: m.bab,
+        text: m.text ?? doc.content,
+      });
+    }
 
     // 3. Strict Anti-Hallucination Prompt Injection + Chat History
     const historyText = body.history ? `RIWAYAT OBROLAN SEBELUMNYA:\n${body.history}\n\n` : '';
