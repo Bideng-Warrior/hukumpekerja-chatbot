@@ -286,9 +286,9 @@ ${retrievedContext}
     //    provider (EMBEDDING_PROVIDER) untuk semua engine.
     //
     //    Konteks khusus Llama dipangkas: checkpoint GRPO dimuat dengan
-    //    max_seq_length 2048 (konfigurasi training-nya), jadi pasal teratas
-    //    diprioritaskan hingga muat ~6500 karakter. Gemini tetap dapat konteks penuh.
-    const NGROK_CONTEXT_CHAR_CAP = 6500;
+    //    max_seq_length 2048 (konfigurasi training-nya). Bahasa Indonesia
+    //    ~3 karakter/token, jadi 4200 karakter + template + jawaban tetap < 2048.
+    const NGROK_CONTEXT_CHAR_CAP = 4200;
     const llamaContextParts: string[] = [];
     let llamaContextSize = 450; // anggaran header aturan
     for (const doc of relevantDocs) {
@@ -332,6 +332,12 @@ ${retrievedContext}
           const answer = typeof data.jawaban_model === 'string' ? data.jawaban_model.trim() : '';
           if (!answer) {
             console.warn('[llama-ngrok] jawaban kosong — fallback ke Gemini');
+            continue;
+          }
+          if (answer.startsWith('[ERROR LLM]')) {
+            // Notebook baru melaporkan error LLM sebagai payload — perlakukan
+            // sebagai kegagalan engine, jangan bocorkan ke pengguna.
+            console.warn('[llama-ngrok] engine error — fallback ke Gemini:', answer.slice(0, 200));
             continue;
           }
           jawaban_model = answer;
