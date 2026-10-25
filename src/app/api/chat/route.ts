@@ -304,7 +304,7 @@ ${retrievedContext}
               query: body.query,
               retrieved_context: strictContext,
             }),
-            signal: AbortSignal.timeout(25000),
+            signal: AbortSignal.timeout(40000),
           });
 
           if (!response.ok) {
