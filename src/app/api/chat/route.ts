@@ -320,7 +320,7 @@ ${retrievedContext}
           query: body.query,
           retrieved_context: llamaContext,
         }),
-            signal: AbortSignal.timeout(40000),
+            signal: AbortSignal.timeout(48000),
           });
 
           if (!response.ok) {
