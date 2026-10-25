@@ -284,10 +284,26 @@ ${retrievedContext}
     //    provider ngrok dipilih, lalu Gemini jika endpoint tidak ada/tidak
     //    merespons/timeout/jawabannya kosong. Embedding & retrieval tetap satu
     //    provider (EMBEDDING_PROVIDER) untuk semua engine.
+    //
+    //    Konteks khusus Llama dipangkas: checkpoint GRPO dimuat dengan
+    //    max_seq_length 2048 (konfigurasi training-nya), jadi pasal teratas
+    //    diprioritaskan hingga muat ~6500 karakter. Gemini tetap dapat konteks penuh.
+    const NGROK_CONTEXT_CHAR_CAP = 6500;
+    const llamaContextParts: string[] = [];
+    let llamaContextSize = 450; // anggaran header aturan
+    for (const doc of relevantDocs) {
+      const part = `${labelOf(doc)}\n${doc.content}`;
+      if (llamaContextSize + part.length > NGROK_CONTEXT_CHAR_CAP) break;
+      llamaContextParts.push(part);
+      llamaContextSize += part.length + 7;
+    }
+    const llamaContext = `ATURAN: jawab HANYA berdasarkan DOKUMEN di bawah; sebut nomor pasalnya; jika tidak ada yang relevan, sarankan menghubungi Disnaker atau LBH terdekat.\n\n${llamaContextParts.join('\n\n---\n\n')}`;
+
     const engines: Array<'ngrok' | 'gemini'> =
       provider === 'ngrok' && endpoint ? ['ngrok', 'gemini'] : ['gemini'];
 
     const prompt = `Konteks:\n${strictContext}\n\nPertanyaan: ${body.query}`;
+    const llamaPrompt = `Konteks:\n${llamaContext}\n\nPertanyaan: ${body.query}`;
     let jawaban_model: string | null = null;
     let engineUsed = '';
 
@@ -300,10 +316,10 @@ ${retrievedContext}
               'Content-Type': 'application/json',
               'ngrok-skip-browser-warning': 'true',
             },
-            body: JSON.stringify({
-              query: body.query,
-              retrieved_context: strictContext,
-            }),
+        body: JSON.stringify({
+          query: body.query,
+          retrieved_context: llamaContext,
+        }),
             signal: AbortSignal.timeout(40000),
           });
 
