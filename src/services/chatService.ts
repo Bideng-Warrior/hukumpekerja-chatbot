@@ -44,6 +44,7 @@ export async function sendMessage(query: string, history: ChatMessage[]): Promis
       role: 'assistant',
       content: data.jawaban_model || FALLBACK_MESSAGE,
       citations: Array.isArray(data.citations) ? data.citations : [],
+      engine: typeof data.engine === 'string' ? data.engine : undefined,
     };
 
   } catch (error) {

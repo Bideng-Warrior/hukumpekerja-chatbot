@@ -50,6 +50,13 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
             </div>
           </div>
           
+          {/* Engine label — siapa yang menjawab */}
+          {!isUser && message.engine && (
+            <span className="text-[10px] text-slate-500 mt-1.5 ml-1 font-medium tracking-wide flex items-center">
+              {message.engine === 'llama-ngrok' ? 'Answered by Llama' : message.engine === 'gemini' ? 'Answered by Gemini' : null}
+            </span>
+          )}
+
           {/* Citations */}
           {!isUser && message.citations && message.citations.length > 0 && (
             <motion.div 

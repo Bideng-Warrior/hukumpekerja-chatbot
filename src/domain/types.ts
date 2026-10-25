@@ -10,6 +10,8 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   citations?: CitationData[];
+  /** Engine that produced the answer: 'llama-ngrok' | 'gemini' */
+  engine?: string;
 }
 
 export interface User {
